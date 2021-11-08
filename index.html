@@ -38,10 +38,10 @@ function gen(fx) {
   PARAMS.sample_size = SAMPLE_SIZE;
   if (fx.indexOf("#") == 0) {
     PARAMS.fromB58(fx.slice(1));
-    $("#wav").text("random.wav");
+    $("#wav").text("random.wav").attr("download", "random.wav");
   } else {
     PARAMS[fx]();
-    $("#wav").text(fx + ".wav");
+    $("#wav").text(fx + ".wav").attr("download", fx + ".wav");
   }
   updateUi();
   play();
@@ -566,10 +566,9 @@ a {
 <div id="export">
   <h2>Sound</h2>
   <p id="soundexport">
-To save the sound, right- or control-click the following link, select 
-"Save As..." and choose a name with a ".wav" extension. <br/>
+  Link to save the sound as a wav file:<br/>
   <br/>
-  <a id="wav">sfx.wav</a> <br/>
+  Save: <a id="wav">sfx.wav</a> <br/>
   <a id="share">permalink</a> <br/>
   <a id="permalink"></a>
   <!-- <a id="sfx">sfx.wav</a><br/> -->
