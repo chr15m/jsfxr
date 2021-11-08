@@ -282,6 +282,38 @@ function convert(control, v) {
 
 <style>
 
+nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 2em;
+}
+
+nav img {
+  max-height: 64px;
+}
+
+nav a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+nav a img {
+  max-height: 48px;
+}
+
+nav a span {
+  font-size: 32px;
+  font-weight: bold;
+  color: #333;
+  margin: 0.25em;
+}
+
+#links {
+  margin-top: 4em;
+}
+
 button, #soundexport, #sound_vol {
   width: 160px;
 }
@@ -447,9 +479,13 @@ a {
 
 <body>
 
-<div>
-<h1>jsfxr</h1>
-</div>
+<nav>
+  <img src="logo.svg"/>
+  <a href="https://pro.sfxr.me">
+    <span>Pro</span>
+    <img src="arrow-up.svg"/>
+  </a>
+</nav>
 
 <div id="generators">
   <h2>Generator</h2>
