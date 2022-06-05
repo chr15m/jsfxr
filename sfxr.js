@@ -361,7 +361,7 @@ Params.prototype.synth = function () {
   this.p_arp_speed = frnd(0.5) + 0.4;
   this.p_duty = frnd(1);
   this.p_duty_ramp = rnd(2) == 2 ? frnd(1) : 0;
-  this.p_lpf_freq = [1, frnd(1) * frnd(1)][rnd(1)];
+  this.p_lpf_freq = [1, 0.9 * frnd(1) * frnd(1) + 0.1][rnd(1)];
   this.p_lpf_ramp = rndr(-1, 1);
   this.p_lpf_resonance = frnd(1);
   this.p_hpf_freq = rnd(3) == 3 ? frnd(1) : 0;
@@ -473,7 +473,7 @@ sfxr.toBuffer = function(synthdef) {
 
 sfxr.toWebAudio = function(synthdef, audiocontext) {
   var sfx = new SoundEffect(synthdef);
-  var buffer = _sfxr_getNormalized(sfx.getRawBuffer()["buffer"], sfx.bitsPerChannel);
+  var buffer = sfx.getRawBuffer()["normalized"];
   if (audiocontext) {
     var buff = audiocontext.createBuffer(1, buffer.length, sfx.sampleRate);
     var nowBuffering = buff.getChannelData(0);
@@ -491,7 +491,11 @@ sfxr.toWave = function(synthdef) {
 };
 
 sfxr.toAudio = function(synthdef) {
-  return (new SoundEffect(synthdef)).generate().getAudio();
+  return sfxr.toWave(synthdef).getAudio();
+}
+
+sfxr.play = function(synthdef) {
+  return sfxr.toAudio(synthdef).play();
 }
 
 sfxr.b58decode = function(b58encoded) {
@@ -508,6 +512,21 @@ sfxr.b58decode = function(b58encoded) {
     }
   }
   return result;
+}
+
+sfxr.b58encode = function(synthdef) {
+  var p = new Params();
+  p.fromJSON(synthdef);
+  return p.toB58();
+}
+
+sfxr.generate = function(algorithm, options) {
+  const p = new Params();
+  const opts = options || {};
+  p.sound_vol = opts["sound_vol"] || 0.25;
+  p.sample_rate = opts["sample_rate"] || 44100;
+  p.sample_size = opts["sample_size"] || 8;
+  return p[algorithm]();
 }
 
 /*** Main entry point ***/
@@ -615,6 +634,7 @@ SoundEffect.prototype.getRawBuffer = function () {
   var num_clipped = 0;
 
   var buffer = [];
+  var normalized = [];
 
   var sample_sum = 0;
   var num_summed = 0;
@@ -757,6 +777,9 @@ SoundEffect.prototype.getRawBuffer = function () {
     sample = sample / OVERSAMPLING * masterVolume;
     sample *= this.gain;
 
+    // store the original normalized floating point sample
+    normalized.push(sample);
+
     if (this.bitsPerChannel === 8) {
       // Rescale [-1, 1) to [0, 256)
       sample = Math.floor((sample + 1) * 128);
@@ -785,6 +808,7 @@ SoundEffect.prototype.getRawBuffer = function () {
   
   return {
     "buffer": buffer,
+    "normalized": normalized,
     "clipped": num_clipped,
   }
 }
@@ -792,23 +816,13 @@ SoundEffect.prototype.getRawBuffer = function () {
 SoundEffect.prototype.generate = function() {
   var rendered = this.getRawBuffer();
   var wave = new RIFFWAVE();
-  var normalized = _sfxr_getNormalized(rendered.buffer, this.bitsPerChannel);
   wave.header.sampleRate = this.sampleRate;
   wave.header.bitsPerSample = this.bitsPerChannel;
   wave.Make(rendered.buffer);
   wave.clipping = rendered.clipped;
-  wave.buffer = normalized;
+  wave.buffer = rendered.normalized;
   wave.getAudio = _sfxr_getAudioFn(wave);
   return wave;
-}
-
-var _sfxr_getNormalized = function(buffer, bitsPerChannel) {
-  // normalize buffer
-  var normalized = new Float32Array(buffer.length);
-  for (var b=0; b<buffer.length; b++) {
-    normalized[b] = 2.0 * buffer[b] / pow(2, bitsPerChannel) - 1.0;
-  }
-  return normalized;
 }
 
 var _actx = null;
@@ -860,6 +874,100 @@ var _sfxr_getAudioFn = function(wave) {
   };
 };
 
+/*** conversions from slider value and to units ***/
+
+var sliders = {
+  p_env_attack:  function (v) { return v * v * 100000.0 },
+  p_env_sustain: function (v) { return v * v * 100000.0 },
+  p_env_punch:   function (v) { return v },
+  p_env_decay:   function (v) { return v * v * 100000.0 },
+  
+  p_base_freq:  function (v) { return 8 * 44100 * (v * v + 0.001) / 100 },
+  p_freq_limit: function (v) { return 8 * 44100 * (v * v + 0.001) / 100 },
+  p_freq_ramp:  function (v) { return 1.0 - Math.pow(v, 3.0) * 0.01 },
+  p_freq_dramp: function (v) { return -Math.pow(v, 3.0) * 0.000001 },
+
+  p_vib_speed:    function (v) { return Math.pow(v, 2.0) * 0.01 },
+  p_vib_strength: function (v) { return v * 0.5 },
+
+  p_arp_mod:   function (v) { 
+    return v >= 0 ? 1.0 - Math.pow(v, 2) * 0.9 : 1.0 + Math.pow(v, 2) * 10; },
+  p_arp_speed: function (v) { return (v === 1.0) ? 0 :
+                              Math.floor(Math.pow(1.0 - v, 2.0) * 20000 +32)},
+
+  p_duty:      function (v) { return 0.5 - v * 0.5; },
+  p_duty_ramp: function (v) { return -v * 0.00005 },
+
+  p_repeat_speed: function (v) { return (v === 0) ? 0 :
+                                 Math.floor(Math.pow(1-v, 2) * 20000) + 32 },
+
+  p_pha_offset: function (v) { return (v < 0 ? -1 : 1) * Math.pow(v,2)*1020 },
+  p_pha_ramp:   function (v) { return (v < 0 ? -1 : 1) * Math.pow(v,2) },
+
+  p_lpf_freq:   function (v) { return Math.pow(v, 3) * 0.1 },
+  p_lpf_ramp:   function (v) { return 1.0 + v * 0.0001 },
+  p_lpf_resonance: function (v) { return 5.0 / (1.0 + Math.pow(v, 2) * 20) }, // * (0.01 + fltw);
+
+  p_hpf_freq: function (v) { return Math.pow(v, 2) * 0.1 },
+  p_hpf_ramp: function (v) { return 1.0 + v * 0.0003 },
+
+  sound_vol: function (v) { return Math.exp(v) - 1; }
+};
+
+var units = {
+  p_env_attack:  function (v) { return (v / 44100).toPrecision(4) + ' sec' },
+  p_env_sustain: function (v) { return (v / 44100).toPrecision(4) + ' sec' },
+  p_env_punch:   function (v) { return '+' + (v * 100).toPrecision(4) + '%'},
+  p_env_decay:   function (v) { return (v / 44100).toPrecision(4) + ' sec' },
+  
+  p_base_freq:   function (v) { return v.toPrecision(4) + 'Hz' },
+  p_freq_limit:  function (v) { return v.toPrecision(4) + 'Hz' },
+  p_freq_ramp:   function (v) { 
+    return (44100*Math.log(v)/Math.log(0.5)).toPrecision(4) + ' 8va/sec'; },
+  p_freq_dramp:  function (v) { 
+    return (v*44100 / Math.pow(2, -44101./44100)).toPrecision(4) + 
+      ' 8va/sec^2?'; },
+
+  p_vib_speed:    function (v) { return v === 0 ? 'OFF' : 
+                                 (441000/64. * v).toPrecision(4) + ' Hz'},
+  p_vib_strength: function (v) { return v === 0 ? 'OFF' : 
+                                 '&plusmn; ' + (v*100).toPrecision(4) + '%' },
+
+  p_arp_mod:   function (v) { return ((v === 1) ? 'OFF' : 
+                                      'x ' + (1./v).toPrecision(4)) },
+  p_arp_speed: function (v) { return (v === 0 ? 'OFF' :
+                                      (v / 44100).toPrecision(4) +' sec') },
+
+  p_duty:      function (v) { return (100 * v).toPrecision(4) + '%'; },
+  p_duty_ramp: function (v) { return (8 * 44100 * v).toPrecision(4) +'%/sec'},
+
+  p_repeat_speed: function (v) { return v === 0 ? 'OFF' : 
+                                 (44100/v).toPrecision(4) + ' Hz' },
+
+  p_pha_offset: function (v) { return v === 0 ? 'OFF' :
+                               (1000*v/44100).toPrecision(4) + ' msec' },
+  // Not so sure about this:
+  p_pha_ramp:   function (v) { return v === 0 ? 'OFF' :
+               (1000*v).toPrecision(4) + ' msec/sec' },
+
+  p_lpf_freq:   function (v) { 
+    return (v === .1) ? 'OFF' : Math.round(8 * 44100 * v / (1-v)) + ' Hz'; },
+  p_lpf_ramp:  function (v) {  if (v === 1) return 'OFF';
+    return Math.pow(v, 44100).toPrecision(4) + ' ^sec'; },
+  p_lpf_resonance: function (v) { return (100*(1-v*.11)).toPrecision(4)+'%';},
+
+  p_hpf_freq:   function (v) { 
+    return (v === 0) ? 'OFF' : Math.round(8 * 44100 * v / (1-v)) + ' Hz'; },
+  p_hpf_ramp: function (v) {  if (v === 1) return 'OFF';
+    return Math.pow(v, 44100).toPrecision(4) + ' ^sec'; },
+
+  sound_vol: function (v) { 
+    v = 10 * Math.log(v*v) / Math.log(10);
+    var sign = v >= 0 ? '+' : '';
+    return sign + v.toPrecision(4) + ' dB'; 
+  }
+};
+
 /*** Plumbing ***/
 
 (function (root, factory) {
@@ -883,9 +991,13 @@ var _sfxr_getAudioFn = function(wave) {
 }(this, function(RIFFWAVE) {
   // module code here....
   return {
+    "sfxr": sfxr,
+    "convert": {
+      "sliders": sliders,
+      "units": units,
+    },
     "Params": Params,
     "SoundEffect": SoundEffect,
-    "sfxr": sfxr,
     "waveforms": {
       "SQUARE": SQUARE,
       "SAWTOOTH": SAWTOOTH,

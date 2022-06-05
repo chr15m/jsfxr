@@ -102,9 +102,9 @@ var RIFFWAVE = function(data) {
 
   this.Make = function(data) {
     if (data instanceof Array) this.data = data;
+    this.header.byteRate = (this.header.sampleRate * this.header.numChannels * this.header.bitsPerSample) >> 3;
     this.header.blockAlign = (this.header.numChannels * this.header.bitsPerSample) >> 3;
-    this.header.byteRate = this.header.blockAlign * this.header.sampleRate;
-    this.header.subChunk2Size = this.data.length * (this.header.bitsPerSample >> 3);
+    this.header.subChunk2Size = this.data.length;
     this.header.chunkSize = 36 + this.header.subChunk2Size;
 
     this.wav = this.header.chunkId.concat(
@@ -120,7 +120,7 @@ var RIFFWAVE = function(data) {
       u16ToArray(this.header.bitsPerSample),
       this.header.subChunk2Id,
       u32ToArray(this.header.subChunk2Size),
-      (this.header.bitsPerSample == 16) ? split16bitArray(this.data) : this.data
+      this.data
     );
     this.dataURI = 'data:audio/wav;base64,'+FastBase64.Encode(this.wav);
   };
