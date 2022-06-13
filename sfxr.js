@@ -925,8 +925,8 @@ var units = {
   p_freq_ramp:   function (v) { 
     return (44100*Math.log(v)/Math.log(0.5)).toPrecision(4) + ' 8va/sec'; },
   p_freq_dramp:  function (v) { 
-    return (v*44100 / Math.pow(2, -44101./44100)).toPrecision(4) + 
-      ' 8va/sec^2?'; },
+    return (v*44100 / Math.pow(2, -44101./44100)).toExponential(4) +
+      ' 8va/s^2'; },
 
   p_vib_speed:    function (v) { return v === 0 ? 'OFF' : 
                                  (441000/64. * v).toPrecision(4) + ' Hz'},

@@ -75,8 +75,9 @@ function play(noregen) {
       if (document.location.href.indexOf("#") != -1) {
         document.location.hash = PARAMS.toB58();
       }
-      $("#permalink").attr("href", "#" + b58)
-      $("#permalink").text(b58)
+      //$("#permalink").attr("href", "#" + b58)
+      //$("#permalink").text(b58)
+      $("#copybuffer").val(b58);
       $("#share").attr("href", "#" + b58)
       SOUND = new SoundEffect(PARAMS).generate();
       $("#file_size").text(Math.round(SOUND.wav.length / 1024) + "kB");
@@ -94,7 +95,7 @@ function play(noregen) {
 function copy() {
   var b = $("#copybuffer");
   b.css("display", "block");
-  b.val($("#permalink").text());
+  //b.val($("#permalink").text());
   b.select();
   document.execCommand("copy");
   b.css("display", "none");
@@ -438,6 +439,8 @@ a {
 
 <div id="generators">
   <h2>Generator</h2>
+  <button onclick="gen('random')">Random</button> <br/>
+  <br/>
   <button onclick="gen('pickupCoin')">Pickup/coin</button> <br/>
   <button onclick="gen('laserShoot')">Laser/shoot</button> <br/>
   <button onclick="gen('explosion')">Explosion</button> <br/>
@@ -447,13 +450,11 @@ a {
   <button onclick="gen('click')">Click</button> <br/>
   <button onclick="gen('blipSelect')">Blip/select</button> <br/>
   <button onclick="gen('synth')">Synth</button> <br/>
-  <button onclick="gen('random')">Random</button> <br/>
   <button onclick="gen('tone')">Tone</button> <br/>
   <br/>
   <button onclick="mut()">Mutate</button> <br/>
   <p>
     <button onclick="play(true)">Play</button><br/>
-    <button onclick="copy()">Copy</button>
   </p>
   <input id="copybuffer"/>
 </div>
@@ -514,12 +515,10 @@ a {
 
 <div id="export">
   <h2>Sound</h2>
+  <button onclick="play(true)">Play</button><br/>
   <p id="soundexport">
-  Link to save the sound as a wav file:<br/>
-  <br/>
-  Save: <a id="wav">sfx.wav</a> <br/>
-  <a id="share">permalink</a> <br/>
-  <a id="permalink"></a>
+  Download:</br><a id="wav">sfx.wav</a> <br/>
+  <!-- <a id="permalink"></a> -->
   <!-- <a id="sfx">sfx.wav</a><br/> -->
 
   <table id="stats">
@@ -557,8 +556,10 @@ a {
       <label for="8">8 bit</label>
   </div>
 </form>
-
+<p><a id="share">🔗 permalink</a></p>
+<p><button onclick="copy()">Copy code</button></p>
 </div>
+
 <br/>
 <div id="data">
   <button onclick="serialize_params();"> ▼ Serialize</button>
