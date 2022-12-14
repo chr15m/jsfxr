@@ -156,6 +156,8 @@ var params_order = [
   "p_hpf_ramp"
 ];
 
+var params_signed = ["p_freq_ramp", "p_freq_dramp", "p_arp_mod", "p_duty_ramp", "p_pha_offset", "p_pha_ramp", "p_lpf_ramp", "p_hpf_ramp"];
+
 Params.prototype.toB58 = function() {
   var convert = [];
   for (var pi in params_order) {
@@ -874,14 +876,16 @@ var _sfxr_getAudioFn = function(wave) {
   };
 };
 
-/*** conversions from slider value and to units ***/
+/*** conversions from slider values, internal, and units ***/
+
+// convert from slider values to internal representation
 
 var sliders = {
   p_env_attack:  function (v) { return v * v * 100000.0 },
   p_env_sustain: function (v) { return v * v * 100000.0 },
   p_env_punch:   function (v) { return v },
   p_env_decay:   function (v) { return v * v * 100000.0 },
-  
+
   p_base_freq:  function (v) { return 8 * 44100 * (v * v + 0.001) / 100 },
   p_freq_limit: function (v) { return 8 * 44100 * (v * v + 0.001) / 100 },
   p_freq_ramp:  function (v) { return 1.0 - Math.pow(v, 3.0) * 0.01 },
@@ -893,7 +897,7 @@ var sliders = {
   p_arp_mod:   function (v) { 
     return v >= 0 ? 1.0 - Math.pow(v, 2) * 0.9 : 1.0 + Math.pow(v, 2) * 10; },
   p_arp_speed: function (v) { return (v === 1.0) ? 0 :
-                              Math.floor(Math.pow(1.0 - v, 2.0) * 20000 +32)},
+                              Math.floor(Math.pow(1.0 - v, 2.0) * 20000 + 32)},
 
   p_duty:      function (v) { return 0.5 - v * 0.5; },
   p_duty_ramp: function (v) { return -v * 0.00005 },
@@ -913,6 +917,117 @@ var sliders = {
 
   sound_vol: function (v) { return Math.exp(v) - 1; }
 };
+
+var sliders_inverse = {
+  p_env_attack:  function (v) { return Math.sqrt(v / 100000.0); },
+  p_env_sustain: function (v) { return Math.sqrt(v / 100000.0); },
+  p_env_punch:   function (v) { return v; },
+  p_env_decay:   function (v) { return Math.sqrt(v / 100000.0); },
+
+  p_base_freq:  function (v) { return Math.sqrt(v * 100 / 8 / 44100 - 0.001); },
+  p_freq_limit: function (v) { return Math.sqrt(v * 100 / 8 / 44100 - 0.001); },
+  p_freq_ramp:  function (v) { return Math.cbrt((1.0 - v) / 0.01); },
+  p_freq_dramp: function (v) { return Math.cbrt(v / -0.000001); },
+
+  p_vib_speed:    function (v) { return Math.sqrt(v / 0.01); },
+  p_vib_strength: function (v) { return v / 0.5; },
+
+  p_arp_mod:   function (v) {
+    return v < 1 ? Math.sqrt((1.0 - v) / 0.9) : -Math.sqrt((v - 1.0) / 10.0);
+  },
+  p_arp_speed: function (v) { return (v === 0) ? 1.0 :
+                              ( (1.0 - Math.sqrt((v - (v < 100 ? 30 : 32)) / 20000)))},
+
+  p_duty:      function (v) { return (v - 0.5) / -0.5; },
+  p_duty_ramp: function (v) { return v / -0.00005 },
+
+  p_repeat_speed: function (v) { return v === 0 ? 0 : -(Math.sqrt((v - 32) / 20000) - 1.0) },
+
+  p_pha_offset: function (v) { return (v < 0 ? -1 : 1) * Math.sqrt(Math.abs(v) / 1020) },
+  p_pha_ramp:   function (v) { return (v < 0 ? -1 : 1) * Math.sqrt(Math.abs(v)) },
+
+  p_lpf_freq:   function (v) { return Math.cbrt(v / 0.1); },
+  p_lpf_ramp:   function (v) { return (v - 1.0) / 0.0001; },
+  p_lpf_resonance: function (v) { return Math.sqrt((1.0 / (v / 5.0) - 1) / 20) },
+
+  p_hpf_freq: function (v) { return Math.sqrt(v / 0.1); },
+  p_hpf_ramp: function (v) { return (v - 1.0) / 0.0003; },
+  sound_vol: function (v) { return Math.log(v + 1);; }
+}
+
+// convert from internal representation to domain value without units
+
+var domain = {
+  p_env_attack:  function (v) { return (v / 44100); },
+  p_env_sustain: function (v) { return (v / 44100); },
+  p_env_punch:   function (v) { return (v * 100); },
+  p_env_decay:   function (v) { return (v / 44100); },
+
+  p_base_freq:   function (v) { return v; },
+  p_freq_limit:  function (v) { return v; },
+  p_freq_ramp:   function (v) { return (44100*Math.log(v)/Math.log(0.5)); },
+  p_freq_dramp:  function (v) { return (v*44100 / Math.pow(2, -44101./44100)); },
+
+  p_vib_speed:    function (v) { return (441000/64. * v); },
+  p_vib_strength: function (v) { return (v*100); },
+
+  p_arp_mod:   function (v) { return (1./v); },
+  p_arp_speed: function (v) { return (v / 44100); },
+
+  p_duty:      function (v) { return (100 * v); },
+  p_duty_ramp: function (v) { return (8 * 44100 * v); },
+
+  p_repeat_speed: function (v) { return v === 0 ? 0 : (44100./v); },
+
+  p_pha_offset: function (v) { return (1000*v/44100); },
+  p_pha_ramp:   function (v) { return (1000*v); },
+
+  p_lpf_freq:   function (v) { return (v === .1) ? 0 : 8 * 44100 * v / (1-v); },
+  p_lpf_ramp:  function (v) { return Math.pow(v, 44100); },
+  p_lpf_resonance: function (v) { return (100*(1-v*.11));},
+
+  p_hpf_freq:   function (v) { return 8 * 44100 * v / (1-v); },
+  p_hpf_ramp: function (v) { return Math.pow(v, 44100); },
+
+  sound_vol: function (v) { return 10 * Math.log(v*v) / Math.log(10); }
+}
+
+var domain_inverse = {
+  p_env_attack:  function (v) { return (v * 44100); },
+  p_env_sustain: function (v) { return (v * 44100); },
+  p_env_punch:   function (v) { return (v / 100); },
+  p_env_decay:   function (v) { return (v * 44100); },
+
+  p_base_freq:   function (v) { return v; },
+  p_freq_limit:  function (v) { return v; },
+  p_freq_ramp:   function (v) { return Math.exp(Math.log(0.5) * v / 44100); },
+  p_freq_dramp:  function (v) { return v * Math.pow(2, -44101./44100) / 44100; },
+
+  p_vib_speed:    function (v) { return (64. / 441000) * v; },
+  p_vib_strength: function (v) { return (v / 100); },
+
+  p_arp_mod:   function (v) { return (1. / v); },
+  p_arp_speed: function (v) { return (v * 44100); },
+
+  p_duty:      function (v) { return (v / 100); },
+  p_duty_ramp: function (v) { return (v / (8 * 44100)); },
+
+  p_repeat_speed: function (v) { return v <= 0 ? 0 : v > 1378 ? 32 : (44100 / v); },
+
+  p_pha_offset: function (v) { return (v / 1000) * 44100; },
+  p_pha_ramp:   function (v) { return (v / 1000); },
+
+  p_lpf_freq:   function (v) { return (v / (v + 8 * 44100)); },
+  p_lpf_ramp:  function (v) { return Math.pow(v, 1 / 44100); },
+  p_lpf_resonance: function (v) { return (1 - v / 100) / .11; },
+
+  p_hpf_freq:   function (v) { return (v / (v + 8 * 44100)); },
+  p_hpf_ramp: function (v) { return Math.pow(v, 1 / 44100); },
+
+  sound_vol: function (v) { return Math.sqrt(Math.pow(10, v / 10)); }
+}
+
+// convert from internal representation to printable units
 
 var units = {
   p_env_attack:  function (v) { return (v / 44100).toPrecision(4) + ' sec' },
@@ -994,7 +1109,14 @@ var units = {
     "sfxr": sfxr,
     "convert": {
       "sliders": sliders,
+      "domain": domain,
+      "sliders_inverse": sliders_inverse,
+      "domain_inverse": domain_inverse,
       "units": units,
+    },
+    "parameters": {
+      "order": params_order,
+      "signed": params_signed,
     },
     "Params": Params,
     "SoundEffect": SoundEffect,

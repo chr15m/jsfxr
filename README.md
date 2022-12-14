@@ -2,7 +2,7 @@ Quick 'n' easy game sound effects generator.
 
 App 👉 https://sfxr.me
 
-[About](#about) | [Library](#library)
+[About](#about) | [Use as a library](#library) | [Jsfxr Pro](#jsfxr-pro)
 
 # About
 
@@ -121,7 +121,13 @@ var sound = sfxr.b58decode(b58string);
 You can also access the lower level classes `SoundEffect` and `Params` if you need to.
 This can be useful for caching the internal representation for efficiency, or mutating the sound with `params.mutate()`.
 
-# links
+# Jsfxr Pro
+
+A [Pro version of Jsfxr](https://pro.sfxr.me/) is available with enhanced features like the ability to save sounds to packs and download a zip file of all wavs.
+
+[![Jsfxr Pro Screenshot](./jsfxr-pro-screenshot.png)](https://pro.sfxr.me)
+
+# Links
 
 * Application:  http://sfxr.me/
 * Source code:  https://github.com/chr15m/jsfxr/
