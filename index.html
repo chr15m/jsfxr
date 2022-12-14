@@ -157,7 +157,7 @@ $(function() {
     SAMPLE_SIZE = PARAMS.sample_size = parseInt(event.target.value);
     play();
   });
-  $("button").button();
+  $("button:not(.pixel)").button();
   $(".slider").slider({
     value: 1000,
     min: 0,
@@ -219,13 +219,43 @@ nav img {
   max-height: 64px;
 }
 
-nav a {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-image: linear-gradient(to bottom, #ffaf0f, #f58400);
-  border-radius: 6px;
-  padding: 0px 1em;
+:root {
+  --b-button: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMjgiIGhlaWdodD0iMjgiIHZpZXdCb3g9IjAgMCAxNCAxNCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IHhsaW5rOmhyZWY9IiNhIiBpZD0iYiIgeDE9IjcuMTQiIHgyPSI3LjIxNiIgeTE9IjEwLjMyMiIgeTI9IjEuNjMxIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNCAtMTQpIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIvPjxsaW5lYXJHcmFkaWVudCBpZD0iYSI+PHN0b3Agb2Zmc2V0PSIwIiBzdHlsZT0ic3RvcC1jb2xvcjojMTdhOTE0O3N0b3Atb3BhY2l0eToxIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdHlsZT0ic3RvcC1jb2xvcjojNDU5MDFmO3N0b3Atb3BhY2l0eToxIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHBhdGggZD0iTS0xMy0xM2gxMnYxMmgtMTJ6IiBzdHlsZT0iZmlsbDp1cmwoI2IpO2ZpbGwtb3BhY2l0eToxIiB0cmFuc2Zvcm09InNjYWxlKC0xKSIvPjxwYXRoIGZpbGw9IiMzMTM3NDIiIGQ9Ik0wIDFoMXYxMkgwek0xIDBoMTJ2MUgxek0xMyAxaDF2MTJoLTF6TTEgMTNoMTJ2MUgxeiIgc3R5bGU9ImZpbGw6IzAwMCIvPjxwYXRoIGZpbGw9IiM2NjYiIGZpbGwtb3BhY2l0eT0iLjQxNCIgZD0iTTIgMTJoMTF2MUgyek0xMiAyaDF2MTBoLTF6Ii8+PHBhdGggZmlsbD0iI2ZmZiIgZmlsbC1vcGFjaXR5PSIuNTQ2IiBkPSJNMSAxaDExdjFIMXpNMSAyaDF2MTBIMXoiLz48cGF0aCBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9Ii41NDYiIGQ9Ik0xIDFoMnYySDF6Ii8+PHBhdGggZmlsbD0iIzY2NiIgZmlsbC1vcGFjaXR5PSIuNDE0IiBkPSJNMTEgMTFoMnYyaC0yeiIvPjxwYXRoIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjU0NiIgZD0iTTIgMTFoMXYxSDJ6TTExIDJoMXYxaC0xeiIvPjxwYXRoIGQ9Ik0xIDEyaDF2MUgxek0xMiAxaDF2MWgtMXpNMSAxaDF2MUgxek0xMiAxMmgxdjFoLTF6IiBzdHlsZT0iZmlsbDojMDAwO2ZpbGwtb3BhY2l0eToxIi8+PC9zdmc+);
+  --b-button-invert: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyOCIgaGVpZ2h0PSIyOCIgdmlld0JveD0iMCAwIDE0IDE0Ij48cGF0aCBkPSJNMCAxaDF2MTJIMHpNMSAwaDEydjFIMXpNMTMgMWgxdjEyaC0xek0xIDEzaDEydjFIMXoiIHN0eWxlPSJmaWxsOiMwMDAiIHRyYW5zZm9ybT0icm90YXRlKDE4MCA3IDcpIi8+PHBhdGggZD0iTTEgMWgxMnYxMkgxeiIgc3R5bGU9ImZpbGw6IzQ1OTAxZjtmaWxsLW9wYWNpdHk6MSIgdHJhbnNmb3JtPSJyb3RhdGUoMTgwIDcgNykiLz48cGF0aCBkPSJNMiAxMmgxMXYxSDJ6TTEyIDJoMXYxMGgtMXoiIHN0eWxlPSJmaWxsOiM2NjY7ZmlsbC1vcGFjaXR5Oi40MTQxMDAwMiIgdHJhbnNmb3JtPSJyb3RhdGUoMTgwIDcgNykiLz48cGF0aCBkPSJNMSAxaDExdjFIMXpNMSAyaDF2MTBIMXoiIHN0eWxlPSJmaWxsOiNmZmY7ZmlsbC1vcGFjaXR5Oi41NDYyNTk5OCIgdHJhbnNmb3JtPSJyb3RhdGUoMTgwIDcgNykiLz48cGF0aCBkPSJNMSAxaDJ2MkgxeiIgc3R5bGU9ImZpbGw6I2ZmZjtmaWxsLW9wYWNpdHk6LjU0NjI1OTk4IiB0cmFuc2Zvcm09InJvdGF0ZSgxODAgNyA3KSIvPjxwYXRoIGQ9Ik0xMSAxMWgydjJoLTJ6IiBzdHlsZT0iZmlsbDojNjY2O2ZpbGwtb3BhY2l0eTouNDE0MTAwMDIiIHRyYW5zZm9ybT0icm90YXRlKDE4MCA3IDcpIi8+PHBhdGggZD0iTTIgMTFoMXYxSDJ6TTExIDJoMXYxaC0xeiIgc3R5bGU9ImZpbGw6I2ZmZjtmaWxsLW9wYWNpdHk6LjU0NjI1OTk4IiB0cmFuc2Zvcm09InJvdGF0ZSgxODAgNyA3KSIvPjxwYXRoIGQ9Ik0xIDEyaDF2MUgxek0xMiAxaDF2MWgtMXpNMSAxaDF2MUgxek0xMiAxMmgxdjFoLTF6IiBzdHlsZT0iZmlsbDojMDAwO2ZpbGwtb3BhY2l0eToxIi8+PC9zdmc+);
+}
+
+button.pixel {
+  background: none;
+  border-image-source: var(--b-button);
+  border-image-slice: 9 9 9 9 fill;
+  border-image-repeat: stretch;
+  border-width: 9px;
+  font-size: 1.5em;
+  font-weight: bold;
+  color: white;
+  transform: translateY(0px);
+  transition: transform 0.15s cubic-bezier(0,0,.27,20);
+  width: 100%;
+  min-width: 12em;
+}
+
+button.pixel {
+}
+
+button.pixel svg path {
+  fill: white;
+}
+
+button.pixel:active {
+  border-image-source: var(--b-button-invert);
+  transform: translateY(4px);
+  transition: transform 0.01s cubic-bezier(0,-0.06,.27,1.8);
+}
+
+button.pixel:disabled {
+  border-image-source: var(--b-button);
+  transform: translateY(0px);
+  opacity: 0.5;
 }
 
 nav a svg {
@@ -426,16 +456,19 @@ a {
 
 <body>
 
-<nav>
-  <img src="logo.svg"/>
-  <span>
-    <a href="https://pro.sfxr.me">
-      <span>Go pro</span>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path d="M528 448H112c-8.8 0-16 7.2-16 16v32c0 8.8 7.2 16 16 16h416c8.8 0 16-7.2 16-16v-32c0-8.8-7.2-16-16-16zm64-320c-26.5 0-48 21.5-48 48 0 7.1 1.6 13.7 4.4 19.8L476 239.2c-15.4 9.2-35.3 4-44.2-11.6L350.3 85C361 76.2 368 63 368 48c0-26.5-21.5-48-48-48s-48 21.5-48 48c0 15 7 28.2 17.7 37l-81.5 142.6c-8.9 15.6-28.9 20.8-44.2 11.6l-72.3-43.4c2.7-6 4.4-12.7 4.4-19.8 0-26.5-21.5-48-48-48S0 149.5 0 176s21.5 48 48 48c2.6 0 5.2-.4 7.7-.8L128 416h384l72.3-192.8c2.5.4 5.1.8 7.7.8 26.5 0 48-21.5 48-48s-21.5-48-48-48z"/></svg>
-    </a>
-    <p>Upgrade to Pro for more features</p>
-  </span>
-</nav>
+<section id="app">
+  <nav>
+    <img src="logo.svg"/>
+    <span>
+      <a href="https://pro.sfxr.me">
+        <button class="pixel">
+          Try Pro for free 
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path d="M528 448H112c-8.8 0-16 7.2-16 16v32c0 8.8 7.2 16 16 16h416c8.8 0 16-7.2 16-16v-32c0-8.8-7.2-16-16-16zm64-320c-26.5 0-48 21.5-48 48 0 7.1 1.6 13.7 4.4 19.8L476 239.2c-15.4 9.2-35.3 4-44.2-11.6L350.3 85C361 76.2 368 63 368 48c0-26.5-21.5-48-48-48s-48 21.5-48 48c0 15 7 28.2 17.7 37l-81.5 142.6c-8.9 15.6-28.9 20.8-44.2 11.6l-72.3-43.4c2.7-6 4.4-12.7 4.4-19.8 0-26.5-21.5-48-48-48S0 149.5 0 176s21.5 48 48 48c2.6 0 5.2-.4 7.7-.8L128 416h384l72.3-192.8c2.5.4 5.1.8 7.7.8 26.5 0 48-21.5 48-48s-21.5-48-48-48z"/></svg>
+        </button>
+       </a>
+       <p>Upgrade to Pro for more features</p>
+    </span>
+  </nav>
 
 <div id="generators">
   <h2>Generator</h2>
