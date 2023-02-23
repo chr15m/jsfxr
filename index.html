@@ -484,16 +484,28 @@ a {
   max-width: 15ch;
 }
 
-#pro ul {
+#pro table {
   padding: 0px;
   margin: 0px;
   display: inline-block;
-  max-width: 90%;
 }
 
-#pro li {
+#pro table td {
+  vertical-align: top;
+}
+
+#pro table th {
+  padding: 0.25em;
+}
+
+#pro table td:nth-child(3) {
   text-align: left;
-  list-style-type: "✅ ";
+}
+
+@media screen and (max-width: 600px) {
+  #pro table td {
+    height: 3em;
+  }
 }
 
 </script>
@@ -671,18 +683,72 @@ With <a href='https://github.com/chr15m/jsfxr'>contributions</a> from Chris McCo
 <div id="pro">
   <h2>Jsfxr Pro</h2>
   <p>A <a href="https://pro.sfxr.me">Pro version of Jsfxr</a> is available with a number of new features:</p>
-  <ul>
-    <li>Dark mode.</li>
-    <li>Name and save sound to packs.</li>
-    <li>Sync packs across all devices.</li>
-    <li>Export individual wav files.</li>
-    <li>Export zip pack of wav files.</li>
-    <li>Infinite undo and redo.</li>
-    <li>Unrestricted commercial use allowed.</li>
-    <li>No personal data collected.</li>
-    <li>Completely private. No ads or trackers.</li>
-    <li>Pause your subscription at any time.</li>
-  </ul>
+  <table class="features">
+    <thead>
+      <tr>
+        <th>Free</th>
+        <th>Pro</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>✅</td>
+        <td>✅</td>
+        <td>Generate unlimited 8-bit sound-fx.</td>
+      </tr>
+      <tr>
+        <td>✅</td>
+        <td>✅</td>
+        <td>Unrestricted commercial use.</td>
+      </tr>
+      <tr>
+        <td>✅</td>
+        <td>✅</td>
+        <td>No personal data collected.</td>
+      </tr>
+      <tr>
+        <td>✅</td>
+        <td>✅</td>
+        <td>Export individual wav files.</td>
+      </tr>
+      <tr>
+        <td>✅</td>
+        <td>✅</td>
+        <td>Completely private. No ads or trackers.</td>
+      </tr>
+      <tr>
+        <td></td>
+        <td>✅</td>
+        <td>Organize sounds in packs.</td>
+      </tr>
+      <tr>
+        <td></td>
+        <td>✅</td>
+        <td>Cloud save and sync across devices.</td>
+      </tr>
+      <tr>
+        <td></td>
+        <td>✅</td>
+        <td>Export zip pack of wav files.</td>
+      </tr>
+      <tr>
+        <td></td>
+        <td>✅</td>
+        <td>Infinite undo and redo.</td>
+      </tr>
+      <tr>
+        <td></td>
+        <td>✅</td>
+        <td>Pause subscription at any time.</td>
+      </tr>
+      <tr>
+        <td></td>
+        <td>✅</td>
+        <td>Dark mode.</td>
+      </tr>
+    </tbody>
+  </table>
   <p>
     <a href="https://pro.sfxr.me">
       <button class="pixel">
