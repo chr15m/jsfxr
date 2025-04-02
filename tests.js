@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 var test = require("tape");
 var j = require("./sfxr");
 

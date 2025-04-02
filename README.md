@@ -111,6 +111,13 @@ var buffer = sfxr.toBuffer(sound);
 console.log(buffer);
 ```
 
+Additionally you can get a dataURI for a wav file of the sound:
+
+```
+var a = sfxr.toWave(sound);
+console.log(a.dataURI);
+```
+
 You can convert between the base58 short-url encoded format and JSON using `b58encode` and `b58decode`:
 
 ```

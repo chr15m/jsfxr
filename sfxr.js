@@ -1040,7 +1040,7 @@ var units = {
   p_freq_ramp:   function (v) { 
     return (44100*Math.log(v)/Math.log(0.5)).toPrecision(4) + ' 8va/sec'; },
   p_freq_dramp:  function (v) { 
-    return (v*44100 / Math.pow(2, -44101./44100)).toExponential(4) +
+    return (v*44100 / Math.pow(2, -44101./44100)).toExponential(3) +
       ' 8va/s^2'; },
 
   p_vib_speed:    function (v) { return v === 0 ? 'OFF' : 
@@ -1090,7 +1090,7 @@ var units = {
     // Now we're wrapping the factory and assigning the return
     // value to the root (window) and returning it as well to
     // the AMD loader.
-    define(["riffwave"], function(RIFFWAVE){
+    define(["./riffwave"], function(RIFFWAVE){
       return (root.jsfxr = factory(RIFFWAVE));
     });
   } else if(typeof module === "object" && module.exports) {
