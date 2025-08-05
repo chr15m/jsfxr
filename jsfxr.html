@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>jsfxr - 8 bit sound maker and online sfx generator</title>
+<meta name="description" content="A simple online 8 bit sound maker and sfx generator. You can also use it as a sound library in your JavaScript games.">
+
+<meta charset="utf-8" >
+<meta name="viewport" content="width=device-width, initial-scale=0.95">
+<link type="image/png" href="/icon.png" rel="icon">
+
+<script src="riffwave.js"></script>
+<script src="sfxr.js"></script>
+
+<script>
+Params.prototype.query = function () {
+  var result = "";
+  for (let key in this) {
+    if (this.hasOwnProperty(key)) {
+      result += "&" + key + "=" + this[key];
+    }
+  }
+  return result.substring(1);
+};
+
+let SOUND;
+let PARAMS;
+let wav;
+let copyBuffer;
+let share;
+let file_size;
+let num_samples;
+let clipping;
+let sfx;
+let serialize;
+let textarea;
+
+const SOUND_VOL = 0.25;
+let SAMPLE_RATE = 44100;
+let SAMPLE_SIZE = 8;
+
+let h, w, canvas;
+
+function updateWaveform(data) {
+  if (canvas === null) {
+    return;
+  }
+
+  let min = 1,
+    max = -1;
+  data.forEach((i) => {
+    if (i < min) min = i;
+    if (i > max) max = i;
+  });
+  let a = max - min;
+
+  canvas.width = w;
+  canvas.height = h;
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
+
+  const ctx = canvas.getContext("2d");
+
+  // ctx.fillStyle = "black";
+  ctx.clearRect(0, 0, w, h);
+
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "#5b5b5b";
+  ctx.beginPath();
+  ctx.moveTo(0, h / 2);
+
+  data.forEach((value, index) => {
+    ctx.lineTo((index * w) / data.length, (value / a) * h + h / 2);
+  });
+
+  ctx.stroke();
+}
+
+function gen(fx) {
+  PARAMS = new Params();
+  PARAMS.sound_vol = SOUND_VOL;
+  PARAMS.sample_rate = SAMPLE_RATE;
+  PARAMS.sample_size = SAMPLE_SIZE;
+  if (fx.indexOf("#") == 0) {
+    PARAMS.fromB58(fx.slice(1));
+    wav.innerText = "random.wav";
+    wav.setAttribute("download", "random.wav");
+  } else {
+    PARAMS[fx]();
+    wav.innerText = `${fx}.wav`;
+    wav.setAttribute("download", `${fx}.wav`);
+  }
+  updateUi();
+  play();
+}
+
+function mut() {
+  PARAMS.mutate();
+  updateUi();
+  play();
+}
+
+function play(noregen) {
+    if (!noregen) {
+      var b58 = PARAMS.toB58();
+      if (document.location.href.indexOf("#") != -1) {
+        document.location.hash = PARAMS.toB58();
+      }
+      //$("#permalink").attr("href", "#" + b58)
+      //$("#permalink").text(b58)
+      copyBuffer.value = b58;
+      share.setAttribute("href", "#" + b58);
+
+      SOUND = sfxr.toWave(PARAMS);
+      file_size.innerText = Math.round(SOUND.wav.length / 1024) + "kB";
+      num_samples.innerText = SOUND.header.subChunk2Size / (SOUND.header.bitsPerSample >> 3);
+      clipping.innerText = SOUND.clipping;
+    }
+
+    wav.setAttribute("href", SOUND.dataURI);
+    // sfx.setAttribute("href", "sfx.wav?" + PARAMS.query());
+
+    updateWaveform(SOUND.buffer);
+
+    SOUND.getAudio().play();
+}
+
+function copy() {
+  copyBuffer.style.display = "block";
+  //b.val($("#permalink").text());
+  copyBuffer.select();
+  document.execCommand("copy");
+  copyBuffer.style.display = "none";
+}
+
+function copyText(element) {
+  element.select();
+  document.execCommand("copy");
+  element.setSelectionRange(0, 0);
+  element.blur();
+}
+
+function serialize_params() {
+  textarea.value = JSON.stringify(PARAMS, null, 2);
+  serialize.style.display = "block";
+}
+
+function deserialize_params() {
+  var newPARAMS = JSON.parse(textarea.value);
+  PARAMS.fromJSON(newPARAMS);
+  play();
+  updateUi();
+}
+
+function disable() {
+  var duty = PARAMS.wave_type == SQUARE || PARAMS.wave_type == SAWTOOTH;
+
+  if (duty) {
+    document.getElementById("p_duty")?.removeAttribute("disabled");
+    document.getElementById("p_duty_ramp")?.removeAttribute("disabled");
+  } else {
+    document.getElementById("p_duty")?.setAttribute("disabled", "disabled");
+    document
+      .getElementById("p_duty_ramp")
+      ?.setAttribute("disabled", "disabled");
+  }
+}
+
+function updateUi() {
+  for (let param in PARAMS) {
+    let value = PARAMS[param];
+    if (param == "wave_type") {
+      let item = document.querySelector(
+        `#shape input[type='radio'][value='${value}']`
+      );
+      item.checked = true;
+    } else if (param == "sample_rate") {
+      let item = document.querySelector(
+        `#hz input[type='radio'][value='${value}']`
+      );
+      item.checked = true;
+    } else if (param == "sample_size") {
+      let item = document.querySelector(
+        `#bits input[type='radio'][value='${value}']`
+      );
+      item.checked = true;
+    } else {
+      let item = document.getElementById(param);
+      if (item && item.type === "range") {
+        item.value = value * 1000;
+        convert(item);
+      }
+    }
+  }
+  disable();
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  wav = document.getElementById("wav");
+  copyBuffer = document.getElementById("copybuffer");
+  share = document.getElementById("share");
+  file_size = document.getElementById("file_size");
+  num_samples = document.getElementById("num_samples");
+  clipping = document.getElementById("clipping");
+  // sfx = document.getElementById("sfx");
+  serialize = document.getElementById("serialize");
+  textarea = document.querySelector("textarea");
+
+  canvas = document.getElementById("waveform");
+  if (canvas) {
+    w = canvas.offsetWidth;
+    h = (w * 9) / 16;
+  }
+
+  document.querySelectorAll("#shape input[type=radio]").forEach((item) => {
+    item.addEventListener("change", (event) => {
+      PARAMS.wave_type = parseInt(event.target.value);
+      disable();
+      play();
+    });
+  });
+
+  document.querySelectorAll("#hz input[type=radio]").forEach((item) => {
+    item.addEventListener("change", (event) => {
+      SAMPLE_RATE = PARAMS.sample_rate = parseInt(event.target.value);
+      play();
+    });
+  });
+
+  document.querySelectorAll("#bits input[type=radio]").forEach((item) => {
+    item.addEventListener("change", (event) => {
+      SAMPLE_SIZE = PARAMS.sample_size = parseInt(event.target.value);
+      play();
+    });
+  });
+
+  document.querySelectorAll(".slider").forEach((item) => {
+    let id = item.id;
+
+    const div = document.createElement("div");
+    item.replaceWith(div);
+
+    let label = document.createElement("label");
+    label.for = id;
+    label.innerHTML = item.dataset.title;
+    div.appendChild(label);
+
+    let output = document.createElement("output");
+    output.for = id;
+    div.appendChild(output);
+
+    if (item.dataset.position === "after") {
+      div.appendChild(item);
+    } else {
+      div.insertAdjacentElement("afterbegin", item);
+    }
+
+    item.type = "range";
+    item.min = 0;
+    item.max = 1000;
+    item.value = 1000;
+    if (item.classList.contains("signed")) {
+      item.min = -1000;
+      item.value = 0;
+    }
+
+    item.label = label;
+    item.output = output;
+
+    item.addEventListener("input", () => {
+      convert(item);
+    });
+    item.addEventListener("change", () => {
+      PARAMS[id] = item.value / 1000;
+      convert(item);
+      play();
+    });
+  });
+
+  gen(document.location.hash || "pickupCoin");
+});
+
+function convert(item) {
+  let id = item.id;
+  let conv = sliders[id];
+  let unit = units[id];
+  let value = conv(item.value / 1000);
+  if (typeof unit === "function") {
+    value = unit(value);
+  } else {
+    value = value.toPrecision(4) + " " + unit;
+  }
+  item.output.value = value;
+}
+</script>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+html {
+    font: 10pt Helvetica, Arial, sans-serif;
+}
+
+body {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 800px;
+    width: 98%;
+}
+
+h1 {
+    font-size: 24pt;
+    padding-right: 1em;
+    padding-top: 0;
+    margin-top: 0;
+}
+
+h2 {
+    font-size: 12pt;
+    text-align: center;
+    font-weight: 400;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 2em;
+}
+
+header img {
+    max-height: 64px;
+}
+
+a {
+    text-decoration: none;
+    color: #00f;
+}
+
+#sound_vol,
+#soundexport,
+button {
+    width: 160px;
+}
+
+#sound_vol {
+    margin-top: 4px;
+    display: block;
+}
+
+#shape label {
+    width: 80px;
+}
+
+#hz label {
+    width: 40px;
+}
+
+#bits label {
+    width: 80px;
+}
+
+#wav {
+    font-weight: 700;
+}
+
+#share {
+    font-weight: 700;
+    font-size: 1.25em;
+    margin-top: 1em;
+    display: inline-block;
+}
+
+#permalink {
+    font-size: 0.75em;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    display: block;
+    margin-top: 1em;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+fieldset {
+    border-style: solid none none;
+    border-color: #ccc;
+    border-width: 1px;
+    margin-bottom: 1rem;
+    padding-left: 0;
+    padding-right: 0;
+    margin-bottom: 0.4rem;
+}
+
+fieldset legend {
+    margin-left: 0.8rem;
+    padding: 0 0.2rem 0 0.2rem;
+    font-weight: 700;
+}
+
+fieldset>div {
+    display: flex;
+    align-items: baseline;
+    line-height: 1.2em;
+}
+
+fieldset output {
+    flex-grow: 1;
+    text-align: right;
+}
+
+label+output {
+    font-weight: 400;
+    display: inline-block;
+    margin-left: 0.4rem;
+    font-size: 10px;
+}
+
+.demo .slider {
+    width: 120px;
+    margin: 0 15px 0 0;
+    transform: translate(0, 2px);
+}
+
+table {
+    margin-left: 0.25em;
+}
+
+th {
+    padding-left: 1em;
+    text-align: left;
+}
+
+#export {
+    text-align: center;
+}
+
+#stats {
+    width: 80%;
+}
+
+#stats td {
+    text-align: right;
+}
+
+#generators button {
+    display: block;
+    margin-bottom: 2px;
+}
+
+#generators button:nth-child(12),
+#generators button:nth-child(13),
+#generators button:nth-child(2) {
+    margin-bottom: 18px;
+}
+
+#data {
+    width: 80%;
+    margin: 1em auto;
+    text-align: center;
+}
+
+#data textarea {
+    width: 80%;
+    height: 40em;
+    margin-top: 1em;
+    min-width: 250px;
+}
+
+#links {
+    margin: 4em auto 0 auto;
+    text-align: center;
+}
+
+#copybuffer {
+    display: none;
+}
+
+#serialize {
+    display: none;
+}
+
+#serialize>button {
+    margin-top: 1em;
+}
+
+#waveform {
+    border-radius: 0.4rem;
+    border: 1px solid #5b5b5b;
+}
+
+main {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.buttonset {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+}
+
+.buttonset input {
+    appearance: none;
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+button {
+    border-radius: 6px;
+}
+
+.buttonset label,
+button {
+    border: 1px solid #666;
+    background: linear-gradient(to bottom, #626262 50%, #555 50%, #686868);
+    line-height: 1.4em;
+    color: #eee;
+    cursor: pointer;
+    padding: 0.4em;
+    text-align: center;
+}
+
+.buttonset label:hover,
+button:hover {
+    background: linear-gradient(to bottom, #288db1 50%, #0078a3 50%, #3a96b8);
+    border-color: #59b4d4;
+}
+
+.buttonset label:first-of-type {
+    border-radius: 6px 0 0 6px;
+}
+
+.buttonset label:last-of-type {
+    border-radius: 0 6px 6px 0;
+}
+
+.button,
+.buttonset input:checked+label {
+    background-image: linear-gradient(to bottom, #f58400, #f6982b);
+    border-color: #ffaf0f;
+}
+
+input[type="range"] {
+    -webkit-appearance: none;
+}
+
+input[type="range"]::-moz-range-thumb {
+    border: 1px solid #f58400;
+    background: linear-gradient(to bottom, #626262 50%, #555 50%, #686868);
+    border-radius: 6px;
+    width: 1.35em;
+    height: 1.35em;
+    cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    border: 1px solid #f58400;
+    background: linear-gradient(to bottom, #626262 50%, #555 50%, #686868);
+    border-radius: 6px;
+    width: 1.35em;
+    height: 1.35em;
+    cursor: pointer;
+    transform: translateY(-2px);
+    appearance: none;
+}
+
+input[type="range"]::-moz-range-track {
+    border: none;
+    background: #262626;
+    height: 14px;
+    border-radius: 6px;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+    border: none;
+    background: #262626;
+    height: 14px;
+    border-radius: 6px;
+}
+
+input[type="range"]:disabled::-moz-range-thumb {
+    border: 1px solid #fbd3a5;
+    background: #c7c7c7;
+    cursor: default;
+}
+
+input[type="range"]:disabled::-webkit-slider-thumb {
+    border: 1px solid #fbd3a5;
+    background: #c7c7c7;
+    cursor: default;
+}
+
+input[type="range"]:disabled::-moz-range-track {
+    background: #a5a5a5;
+}
+
+input[type="range"]:disabled::-webkit-slider-runnable-track {
+    background: #a5a5a5;
+}
+</style>
+</head>
+
+<body>
+
+  <header>
+    <img src="logo-opt.svg" />
+    <div style="height:71px;">jsfxr</div>
+  </header>
+
+    <main>
+        <div id="generators">
+            <h2>Generator</h2>
+            <button onclick="gen('random')">Random</button>
+
+            <button onclick="gen('pickupCoin')">Pickup/coin</button>
+            <button onclick="gen('laserShoot')">Laser/shoot</button>
+            <button onclick="gen('explosion')">Explosion</button>
+            <button onclick="gen('powerUp')">Powerup</button>
+            <button onclick="gen('hitHurt')">Hit/hurt</button>
+            <button onclick="gen('jump')">Jump</button>
+            <button onclick="gen('click')">Click</button>
+            <button onclick="gen('blipSelect')">Blip/select</button>
+            <button onclick="gen('synth')">Synth</button>
+            <button onclick="gen('tone')">Tone</button>
+
+            <button onclick="mut()">Mutate</button>
+
+            <button onclick="play(true)">Play</button>
+
+            <input id="copybuffer" />
+        </div>
+
+        <div class="demo">
+            <h2>Manual Settings</h2>
+            <form>
+                <div id="shape" class="buttonset">
+                    <input type="radio" id="square" value=0 name="shape" />
+                    <label for="square">Square</label>
+                    <input type="radio" id="sawtooth" value=1 name="shape" checked="checked" />
+                    <label for="sawtooth">Sawtooth</label>
+                    <input type="radio" id="sine" value=2 name="shape" />
+                    <label for="sine">Sine</label>
+                    <input type="radio" id="noise" value=3 name="shape" />
+                    <label for="noise">Noise</label>
+                </div>
+            </form>
+
+            <br />
+
+            <div>
+                <fieldset>
+                    <legend>Envelope</legend>
+                    <input class="slider" id="p_env_attack" data-title="Attack time" />
+                    <input class="slider" id="p_env_sustain" data-title="Sustain time" />
+                    <input class="slider" id="p_env_punch" data-title="Sustain punch" />
+                    <input class="slider" id="p_env_decay" data-title="Decay time" />
+                </fieldset>
+                <fieldset>
+                    <legend>Frequency</legend>
+                    <input class="slider" id="p_base_freq" data-title="Start frequency" />
+                    <input class="slider" id="p_freq_limit" data-title="Min freq. cutoff" />
+                    <input class="slider signed" id="p_freq_ramp" data-title="Slide" />
+                    <input class="slider signed" id="p_freq_dramp" data-title="Delta slide" />
+                </fieldset>
+                <fieldset>
+                    <legend>Vibrato</legend>
+                    <input class="slider" id="p_vib_strength" data-title="Depth" />
+                    <input class="slider" id="p_vib_speed" data-title="Speed" />
+                </fieldset>
+                <fieldset>
+                    <legend>Arpeggiation</legend>
+                    <input class="slider signed" id="p_arp_mod" data-title="Frequency mult" />
+                    <input class="slider" id="p_arp_speed" data-title="Change speed" />
+                </fieldset>
+                <fieldset>
+                    <legend>Duty Cycle</legend>
+                    <input class="slider" id="p_duty" data-title="Duty cycle" />
+                    <input class="slider signed" id="p_duty_ramp" data-title="Sweep" />
+                </fieldset>
+                <fieldset>
+                    <legend>Retrigger</legend>
+                    <input class="slider" id="p_repeat_speed" data-title="Rate" />
+                </fieldset>
+                <fieldset>
+                    <legend>Flanger</legend>
+                    <input class="slider signed" id="p_pha_offset" data-title="Offset" />
+                    <input class="slider signed" id="p_pha_ramp" data-title="Sweep" />
+                </fieldset>
+                <fieldset>
+                    <legend>Low-Pass Filter</legend>
+                    <input class="slider" id="p_lpf_freq" data-title="Cutoff frequency" />
+
+                    <input class="slider signed" id="p_lpf_ramp" data-title="Cutoff sweep" />
+                    <input class="slider" id="p_lpf_resonance" data-title="Resonance" />
+                </fieldset>
+                <fieldset>
+                    <legend>High-Pass Filter</legend>
+                    <input class="slider" id="p_hpf_freq" data-title="Cutoff frequency" />
+                    <input class="slider signed" id="p_hpf_ramp" data-title="Cutoff sweep" />
+                </fieldset>
+            </div>
+        </div>
+
+        <div id="export">
+            <h2>Sound</h2>
+            <button onclick="play(true)">Play</button>
+
+            <p id="soundexport">
+                Download:</br>
+                <a id="wav">sfx.wav</a>
+
+                <!-- <a id="permalink"></a> -->
+                <!-- <a id="sfx">sfx.wav</a><br /> -->
+            </p>
+
+            <table id="stats">
+                <tr>
+                    <th>File size:</th>
+                    <td id="file_size"></td>
+                </tr>
+                <tr>
+                    <th>Samples:</th>
+                    <td id="num_samples"></td>
+                </tr>
+                <tr>
+                    <th>Clipped:</th>
+                    <td id="clipping"></td>
+                </tr>
+            </table>
+
+            <p>
+                <input class="slider" id="sound_vol" data-title="Gain" data-position="after" />
+            </p>
+
+            <label for="hz">Sample Rate (Hz)</label>
+            <br />
+            <div id="hz" class="buttonset">
+                <input type="radio" id="44100" value=44100 name="hz" checked="checked" />
+                <label for="44100">44k</label>
+                <input type="radio" id="22050" value=22050 name="hz" />
+                <label for="22050">22k</label>
+                <input type="radio" id="11025" value=11025 name="hz" />
+                <label for="11025">11k</label>
+                <input type="radio" id="8000" value=8000 name="hz" />
+                <label for="8000">8k</label>
+            </div>
+
+            <br />
+            <label for="bits">Sample size</label>
+            <br />
+            <div id="bits" class="buttonset">
+                <input type="radio" id="16" value=16 name="bits" />
+                <label for="16">16 bit</label>
+                <input type="radio" id="8" value=8 name="bits" checked="checked" />
+                <label for="8">8 bit</label>
+            </div>
+
+            <p><a id="share">🔗 permalink</a></p>
+            <p><button onclick="copy()">Copy code</button></p>
+            <p><canvas id="waveform" width="100" style="width:100%"></canvas></p>
+        </div>
+    </main>
+
+    <div id="data">
+        <button onclick="serialize_params();"> ▼ Serialize</button>
+        <button onclick="deserialize_params()"> ▲ Deserialize</button>
+        <div id="serialize">
+            <textarea></textarea>
+            <button onclick="copyText(textarea)">Copy</button>
+            <button onclick="document.getElementById('serialize').style.display='none'">Hide ✕</button>
+        </div>
+    </div>
+
+    <div id="links">
+        <h1>about jsfxr</h1>
+        <p>Jsfxr is an online 8 bit sound maker and sfx generator. All you need to make retro sound effects with jsfxr
+            is a
+            web browser. It's a JavaScript port of the original <a href="http://www.drpetter.se/project_sfxr.html"
+                id="original">sfxr</a> by DrPetter. You can also use it as a <a
+                href='https://github.com/chr15m/jsfxr#use'>JavaScript library</a> for playing and rendering sfxr sound
+            effects
+            in your games.</p>
+        <br />
+        (Port of <a href="http://www.drpetter.se/project_sfxr.html" id="original">sfxr</a> by DrPetter)<br />
+        <a id="uncopy" href="UNLICENSE">¢</a> 2011
+        <a href="http://fredricksen.net/">Eric Fredricksen</a><br />
+        With <a href='https://github.com/chr15m/jsfxr'>contributions</a> from Chris McCormick<br />
+        <br />
+        <a href="https://github.com/chr15m/jsfxr" id="source">(Source code)</a>
+        <br />
+        <p><a href='https://github.com/chr15m/jsfxr#use'>See the documentation for using these sounds in your JavaScript
+                game</a>.</p>
+        <p>Tip: use the <code>sfxr-to-wav</code> nodejs script to convert to a wave file on the command line.</p>
+    </div>
+
+</body>
+</html>
