@@ -36,13 +36,16 @@ function gen(fx) {
   PARAMS.sound_vol = SOUND_VOL;
   PARAMS.sample_rate = SAMPLE_RATE;
   PARAMS.sample_size = SAMPLE_SIZE;
+  var name;
   if (fx.indexOf("#") == 0) {
     PARAMS.fromB58(fx.slice(1));
-    $("#wav").text("random.wav").attr("download", "random.wav");
+    name = "random";
   } else {
     PARAMS[fx]();
-    $("#wav").text(fx + ".wav").attr("download", fx + ".wav");
+    name = fx;
   }
+  $("#wav").text(name + ".wav").attr("download", name + ".wav");
+  $("#json").text(name + ".json").attr("download", name + ".json");
   updateUi();
   play();
 }
@@ -70,7 +73,8 @@ function play(noregen) {
       $("#clipping").text(SOUND.clipping);
     }
     
-    $("#wav").attr("href", SOUND.dataURI)  ;
+    $("#wav").attr("href", SOUND.dataURI);
+    $("#json").attr("href", 'data:text/plain;charset=UTF-8,' + encodeURIComponent(serialize_params_to_string()));
     $("#sfx").attr("href", "sfx.wav?" + PARAMS.query());
     
     SOUND.getAudio().play();
@@ -85,16 +89,43 @@ function copy() {
   b.css("display", "none");
 }
 
+function serialize_params_to_string() {
+  return JSON.stringify(PARAMS, null, 2);
+}
+
 function serialize_params() {
-  $("textarea").val(JSON.stringify(PARAMS, null, 2));
+  $("textarea").val(serialize_params_to_string());
   $("#serialize").show();
 }
 
-function deserialize_params() {
-  var newPARAMS = JSON.parse($("textarea").val());
+function deserialize_params_from_string(json_string) {
+  var newPARAMS = JSON.parse(json_string);
   PARAMS.fromJSON(newPARAMS);
   play();
   updateUi();
+}
+
+function deserialize_params() {
+  deserialize_params_from_string($("textarea").val());
+}
+
+function upload_params_from_file() {
+  $("#open_save_impl").click();
+}
+
+function on_upload_file_selected(e) {
+  var file = e.target.files[0];
+  if (!file) {
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var contents = e.target.result;
+    $("textarea").val(contents);
+    deserialize_params_from_string(contents);
+    $("#open_save_impl").val("");
+  };
+  reader.readAsText(file);
 }
 
 function disenable() {
@@ -212,7 +243,7 @@ button, #soundexport, #sound_vol {
   width: 80px;
 }
 
-#wav {
+#wav, #json {
   font-weight: bold;
 }
 
@@ -259,6 +290,43 @@ body {
 
 .ui-widget-content .ui-state-default {
   border-color: #F58400;
+}
+
+button[onclick*="play"] {
+  border: 1px solid #4caf50;
+  background: #4cbb50 url(jquery/images/ui-bg_gloss-wave_25_333333_500x100.png) 50% 50% repeat-x;
+  background-color: #4cbb50;
+  font-weight: bold;
+  color: #ffffff;
+  position: relative;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+button[onclick*="play"]:before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(76, 187, 80, 0.6);
+  pointer-events: none;
+  z-index: 0;
+}
+
+button[onclick*="play"] span {
+  position: relative;
+  z-index: 1;
+}
+
+button[onclick*="play"]:hover {
+  border: 1px solid #5cbf60;
+  background: #55cc5a url(jquery/images/ui-bg_gloss-wave_25_333333_500x100.png) 50% 50% repeat-x;
+  background-color: #55cc5a;
+}
+
+button[onclick*="play"]:hover:before {
+  background-color: rgba(85, 204, 90, 0.6);
 }
 
 * {
@@ -347,6 +415,10 @@ a {
 
 #serialize > button {
   margin-top: 1em;
+}
+
+#open_save_impl {
+  display: none;
 }
 
 </script>
@@ -441,6 +513,8 @@ a {
   <button onclick="play(true)">Play</button><br/>
   <p id="soundexport">
   Download:</br><a id="wav">sfx.wav</a> <br/>
+  <br/>
+  Save As:</br><a id="json">sfx.json</a> <br/>
   <!-- <a id="permalink"></a> -->
   <!-- <a id="sfx">sfx.wav</a><br/> -->
 
@@ -487,6 +561,8 @@ a {
 <div id="data">
   <button onclick="serialize_params();"> ▼ Serialize</button>
   <button onclick="deserialize_params()"> ▲ Deserialize</button>
+  <button onclick="upload_params_from_file()"> ⇧ Open Save</button>
+  <input type="file" id="open_save_impl" accept="application/JSON" onchange="on_upload_file_selected.apply(this, arguments)" />
   <div id="serialize">
     <textarea></textarea>
     <button onclick="$('textarea').select(); document.execCommand('copy');">Copy</button>
