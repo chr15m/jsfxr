@@ -1,0 +1,11 @@
+To upgrade jquery-ui:
+--------------------
+
+Download jquery UI custome build. Select only:
+- Theme: UI darkness
+- All the components in the UI Core group
+- In Widgets, Slider and Button
+- Nothing else
+
+The copy from the download directory to replace what's in ./jquery/
+
