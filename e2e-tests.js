@@ -209,6 +209,56 @@ test.describe('jsfxr', () => {
         expect(min).toBe(0);
       }
     });
+
+    test('slider labels exist and display values', async ({ page }) => {
+      await page.click('button:has-text("Pickup/coin")');
+      
+      // Check that labels exist for key sliders
+      const slidersWithUnits = [
+        { id: 'p_env_attack', unit: 'sec' },
+        { id: 'p_env_sustain', unit: 'sec' },
+        { id: 'p_env_decay', unit: 'sec' },
+        { id: 'p_base_freq', unit: 'Hz' },
+        { id: 'sound_vol', unit: 'dB' },
+      ];
+
+      for (const { id, unit } of slidersWithUnits) {
+        const labelText = await page.evaluate(
+          (sliderId) => $(`label[for="${sliderId}"]`).text(),
+          id
+        );
+        expect(labelText).toContain(unit);
+      }
+    });
+
+    test('slider labels update when slider is moved', async ({ page }) => {
+      await page.click('button:has-text("Pickup/coin")');
+      
+      // Get initial label value for attack time
+      const initialLabel = await page.evaluate(
+        () => $('label[for="p_env_attack"]').text()
+      );
+      
+      // Move the attack slider to max
+      const slider = page.locator('#p_env_attack');
+      const box = await slider.boundingBox();
+      const startX = box.x + 10;
+      const endX = box.x + box.width - 10;
+      const centerY = box.y + box.height / 2;
+      
+      await page.mouse.move(startX, centerY);
+      await page.mouse.down();
+      await page.mouse.move(endX, centerY);
+      await page.mouse.up();
+      
+      // Get updated label value
+      const updatedLabel = await page.evaluate(
+        () => $('label[for="p_env_attack"]').text()
+      );
+      
+      expect(updatedLabel).not.toBe(initialLabel);
+      expect(updatedLabel).toContain('sec');
+    });
   });
 
   test.describe('URL hash / permalink', () => {
