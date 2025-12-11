@@ -212,57 +212,84 @@ test.describe('jsfxr', () => {
   });
 
   test.describe('URL hash / permalink', () => {
-    test('hash updates when sound is generated', async ({ page }) => {
-      // Debug: check initial state
-      const initialHash = await page.evaluate(() => location.hash);
-      const initialHref = await page.evaluate(() => location.href);
-      console.log('Initial hash:', initialHash);
-      console.log('Initial href:', initialHref);
+    test('share link updates when sound is generated', async ({ page }) => {
+      await page.click('button:has-text("Pickup/coin")');
+      
+      const shareHref = await page.evaluate(() => 
+        document.getElementById('share').getAttribute('href')
+      );
+      
+      expect(shareHref).toMatch(/^#[1-9A-HJ-NP-Za-km-z]+$/);
+      expect(shareHref.length).toBeGreaterThan(10);
+    });
+
+    test('hash updates when URL already has hash', async ({ page }) => {
+      // Navigate with an existing hash so the code will update location.hash
+      await page.goto(BASE_URL + '/index.html#test');
+      await page.waitForFunction(() => typeof PARAMS !== 'undefined');
       
       await page.click('button:has-text("Pickup/coin")');
       
       const hash = await page.evaluate(() => location.hash);
-      const shareHref = await page.evaluate(() => 
-        document.getElementById('share').getAttribute('href')
-      );
-      console.log('After click - hash:', hash);
-      console.log('After click - share href:', shareHref);
       
-      // The code only updates hash if there's already a # in the URL
-      // So check the share link instead which always gets updated
-      expect(shareHref.length).toBeGreaterThan(10);
+      // Hash should now be a valid B58 string (not #test anymore)
+      expect(hash).toMatch(/^#[1-9A-HJ-NP-Za-km-z]+$/);
+      expect(hash.length).toBeGreaterThan(10);
+    });
+
+    test('hash changes when different preset is selected', async ({ page }) => {
+      await page.goto(BASE_URL + '/index.html#existing');
+      await page.waitForFunction(() => typeof PARAMS !== 'undefined');
+      
+      await page.click('button:has-text("Pickup/coin")');
+      const hash1 = await page.evaluate(() => location.hash);
+      
+      await page.click('button:has-text("Explosion")');
+      const hash2 = await page.evaluate(() => location.hash);
+      
+      expect(hash1).not.toBe(hash2);
     });
 
     test('loading with hash restores parameters', async ({ page }) => {
       await page.click('button:has-text("Explosion")');
       
-      // Get the B58 from the share link since hash may not be set
       const shareHref = await page.evaluate(() => 
         document.getElementById('share').getAttribute('href')
       );
       const originalParams = await page.evaluate(() => JSON.stringify(PARAMS));
-      console.log('Original params:', originalParams.substring(0, 100) + '...');
-      console.log('Share href:', shareHref);
 
       // Navigate with the hash from share link
       await page.goto(BASE_URL + '/index.html' + shareHref);
       await page.waitForFunction(() => typeof PARAMS !== 'undefined');
 
       const loadedParams = await page.evaluate(() => JSON.stringify(PARAMS));
-      console.log('Loaded params:', loadedParams.substring(0, 100) + '...');
       
       expect(loadedParams).toBe(originalParams);
     });
 
+    test('loading with hash updates UI controls', async ({ page }) => {
+      // Generate a sound first, then change waveform after
+      // (presets overwrite wave_type, so must change after)
+      await page.click('button:has-text("Pickup/coin")');
+      await page.click('label[for="noise"]');
+      
+      const shareHref = await page.evaluate(() => 
+        document.getElementById('share').getAttribute('href')
+      );
+
+      // Navigate fresh with the hash
+      await page.goto(BASE_URL + '/index.html' + shareHref);
+      await page.waitForFunction(() => typeof PARAMS !== 'undefined');
+
+      // Verify the noise radio button is checked
+      const noiseChecked = await page.isChecked('#noise');
+      expect(noiseChecked).toBe(true);
+    });
+
     test('permalink link has correct href', async ({ page }) => {
       await page.click('button:has-text("Jump")');
-      const hash = await page.evaluate(() => location.hash);
       const shareHref = await page.getAttribute('#share', 'href');
-      console.log('Hash:', hash);
-      console.log('Share href:', shareHref);
       
-      // The share link should have a valid B58 hash
-      // (location.hash may be empty if URL didn't have # initially)
       expect(shareHref).toMatch(/^#[1-9A-HJ-NP-Za-km-z]+$/);
       expect(shareHref.length).toBeGreaterThan(10);
     });
