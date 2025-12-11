@@ -566,6 +566,18 @@ button:hover {
     border-color: #59b4d4;
 }
 
+button.play-button {
+    background: linear-gradient(to bottom, #45973c 50%, #3a833c 50%, #45973c);
+    border-color: #3a833c;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+button.play-button:hover {
+    background: linear-gradient(to bottom, #52a847 50%, #45973c 50%, #52a847);
+    border-color: #52a847;
+}
+
 .buttonset label:first-of-type {
     border-radius: 6px 0 0 6px;
 }
@@ -665,7 +677,7 @@ input[type="range"]:disabled::-webkit-slider-runnable-track {
 
             <button onclick="mut()">Mutate</button>
 
-            <button onclick="play(true)">Play</button>
+            <button class="play-button" onclick="play(true)">Play</button>
 
             <input id="copybuffer" />
         </div>
@@ -743,7 +755,7 @@ input[type="range"]:disabled::-webkit-slider-runnable-track {
 
         <div id="export">
             <h2>Sound</h2>
-            <button onclick="play(true)">Play</button>
+            <button class="play-button" onclick="play(true)">Play</button>
 
             <p id="soundexport">
                 Download:</br>
