@@ -531,7 +531,7 @@ test.describe('jsfxr', () => {
   });
 
   test.describe('Play button', () => {
-    test('play button regenerates sound', async ({ page }) => {
+    test('play button replays without regenerating', async ({ page }) => {
       await page.click('button:has-text("Pickup/coin")');
       const firstDataURI = await page.evaluate(() => SOUND.dataURI);
 
