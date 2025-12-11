@@ -102,7 +102,7 @@ test.describe('jsfxr', () => {
     test('duty cycle sliders disable for sine wave', async ({ page }) => {
       await page.click('label[for="sine"]');
       const dutyDisabled = await page.evaluate(() => {
-        return $('#p_duty').slider('option', 'disabled');
+        return document.getElementById('p_duty').disabled;
       });
       expect(dutyDisabled).toBe(true);
     });
@@ -110,7 +110,7 @@ test.describe('jsfxr', () => {
     test('duty cycle sliders disable for noise wave', async ({ page }) => {
       await page.click('label[for="noise"]');
       const dutyDisabled = await page.evaluate(() => {
-        return $('#p_duty').slider('option', 'disabled');
+        return document.getElementById('p_duty').disabled;
       });
       expect(dutyDisabled).toBe(true);
     });
@@ -119,7 +119,7 @@ test.describe('jsfxr', () => {
       await page.click('label[for="sine"]');
       await page.click('label[for="square"]');
       const dutyDisabled = await page.evaluate(() => {
-        return $('#p_duty').slider('option', 'disabled');
+        return document.getElementById('p_duty').disabled;
       });
       expect(dutyDisabled).toBe(false);
     });
@@ -157,7 +157,7 @@ test.describe('jsfxr', () => {
       
       // Get initial state (default is 0.25 = slider value 250)
       const initialSliderVal = await page.evaluate(() => 
-        $('#sound_vol').slider('value')
+        parseInt(document.getElementById('sound_vol').value)
       );
       
       // Get slider element bounding box for drag calculations
@@ -177,7 +177,7 @@ test.describe('jsfxr', () => {
 
       const paramVol1 = await page.evaluate(() => PARAMS.sound_vol);
       const sliderValue1 = await page.evaluate(() => 
-        $('#sound_vol').slider('value')
+        parseInt(document.getElementById('sound_vol').value)
       );
       expect(sliderValue1).toBeGreaterThan(400);
       expect(sliderValue1).toBeLessThan(600);
@@ -196,7 +196,7 @@ test.describe('jsfxr', () => {
 
       const paramVol2 = await page.evaluate(() => PARAMS.sound_vol);
       const sliderValue2 = await page.evaluate(() => 
-        $('#sound_vol').slider('value')
+        parseInt(document.getElementById('sound_vol').value)
       );
       expect(sliderValue2).toBeGreaterThan(200);
       expect(sliderValue2).toBeLessThan(300);
@@ -212,7 +212,7 @@ test.describe('jsfxr', () => {
 
       for (const slider of signedSliders) {
         const min = await page.evaluate(
-          (id) => $(`#${id}`).slider('option', 'min'),
+          (id) => parseInt(document.getElementById(id).min),
           slider
         );
         expect(min).toBe(-1000);
@@ -227,7 +227,7 @@ test.describe('jsfxr', () => {
 
       for (const slider of unsignedSliders) {
         const min = await page.evaluate(
-          (id) => $(`#${id}`).slider('option', 'min'),
+          (id) => parseInt(document.getElementById(id).min),
           slider
         );
         expect(min).toBe(0);
@@ -247,20 +247,20 @@ test.describe('jsfxr', () => {
       ];
 
       for (const { id, unit } of slidersWithUnits) {
-        const labelText = await page.evaluate(
-          (sliderId) => $(`label[for="${sliderId}"]`).text(),
+        const outputText = await page.evaluate(
+          (sliderId) => document.querySelector(`output[for="${sliderId}"]`).textContent,
           id
         );
-        expect(labelText).toContain(unit);
+        expect(outputText).toContain(unit);
       }
     });
 
     test('slider labels update when slider is moved', async ({ page }) => {
       await page.click('button:has-text("Pickup/coin")');
       
-      // Get initial label value for attack time
-      const initialLabel = await page.evaluate(
-        () => $('label[for="p_env_attack"]').text()
+      // Get initial output value for attack time
+      const initialOutput = await page.evaluate(
+        () => document.querySelector('output[for="p_env_attack"]').textContent
       );
       
       // Move the attack slider to max
@@ -275,13 +275,13 @@ test.describe('jsfxr', () => {
       await page.mouse.move(endX, centerY);
       await page.mouse.up();
       
-      // Get updated label value
-      const updatedLabel = await page.evaluate(
-        () => $('label[for="p_env_attack"]').text()
+      // Get updated output value
+      const updatedOutput = await page.evaluate(
+        () => document.querySelector('output[for="p_env_attack"]').textContent
       );
       
-      expect(updatedLabel).not.toBe(initialLabel);
-      expect(updatedLabel).toContain('sec');
+      expect(updatedOutput).not.toBe(initialOutput);
+      expect(updatedOutput).toContain('sec');
     });
   });
 
