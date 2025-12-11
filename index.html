@@ -25,6 +25,7 @@ Params.prototype.query = function () {
 let SOUND;
 let PARAMS;
 let wav;
+let json;
 let copyBuffer;
 let share;
 let file_size;
@@ -33,6 +34,7 @@ let clipping;
 let sfx;
 let serialize;
 let textarea;
+let open_save_impl;
 
 const SOUND_VOL = 0.25;
 let SAMPLE_RATE = 44100;
@@ -83,13 +85,15 @@ function gen(fx) {
   var name;
   if (fx.indexOf("#") == 0) {
     PARAMS.fromB58(fx.slice(1));
-    wav.innerText = "random.wav";
-    wav.setAttribute("download", "random.wav");
+    name = "random";
   } else {
     PARAMS[fx]();
-    wav.innerText = `${fx}.wav`;
-    wav.setAttribute("download", `${fx}.wav`);
+    name = fx;
   }
+  wav.innerText = `${name}.wav`;
+  wav.setAttribute("download", `${name}.wav`);
+  json.innerText = `${name}.json`;
+  json.setAttribute("download", `${name}.json`);
   updateUi();
   play();
 }
@@ -118,7 +122,8 @@ function play(noregen) {
     }
 
     wav.setAttribute("href", SOUND.dataURI);
-    // sfx.setAttribute("href", "sfx.wav?" + PARAMS.query());
+    json.setAttribute("href", 'data:text/plain;charset=UTF-8,' +
+      encodeURIComponent(serialize_params_to_string()));
 
     updateWaveform(SOUND.buffer);
 
@@ -150,10 +155,33 @@ function serialize_params() {
 }
 
 function deserialize_params() {
-  var newPARAMS = JSON.parse(textarea.value);
+  deserialize_params_from_string(textarea.value);
+}
+
+function deserialize_params_from_string(json_string) {
+  var newPARAMS = JSON.parse(json_string);
   PARAMS.fromJSON(newPARAMS);
   play();
   updateUi();
+}
+
+function upload_params_from_file() {
+  open_save_impl.click();
+}
+
+function on_upload_file_selected(e) {
+  var file = e.target.files[0];
+  if (!file) {
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var contents = e.target.result;
+    textarea.value = contents;
+    deserialize_params_from_string(contents);
+    open_save_impl.value = "";
+  };
+  reader.readAsText(file);
 }
 
 function disable() {
@@ -201,14 +229,16 @@ function updateUi() {
 
 document.addEventListener("DOMContentLoaded", function () {
   wav = document.getElementById("wav");
+  json = document.getElementById("json");
   copyBuffer = document.getElementById("copybuffer");
   share = document.getElementById("share");
   file_size = document.getElementById("file_size");
   num_samples = document.getElementById("num_samples");
   clipping = document.getElementById("clipping");
-  // sfx = document.getElementById("sfx");
   serialize = document.getElementById("serialize");
   textarea = document.querySelector("textarea");
+  open_save_impl = document.getElementById("open_save_impl");
+  open_save_impl.addEventListener("change", on_upload_file_selected);
 
   canvas = document.getElementById("waveform");
   if (canvas) {
@@ -718,9 +748,9 @@ input[type="range"]:disabled::-webkit-slider-runnable-track {
             <p id="soundexport">
                 Download:</br>
                 <a id="wav">sfx.wav</a>
-
-                <!-- <a id="permalink"></a> -->
-                <!-- <a id="sfx">sfx.wav</a><br /> -->
+                <br /><br />
+                Save As:</br>
+                <a id="json">sfx.json</a>
             </p>
 
             <table id="stats">
@@ -774,6 +804,8 @@ input[type="range"]:disabled::-webkit-slider-runnable-track {
     <div id="data">
         <button onclick="serialize_params();"> ▼ Serialize</button>
         <button onclick="deserialize_params()"> ▲ Deserialize</button>
+        <button onclick="upload_params_from_file()"> ⇧ Open Save</button>
+        <input type="file" id="open_save_impl" accept="application/JSON" style="display:none" />
         <div id="serialize">
             <textarea></textarea>
             <button onclick="copyText(textarea)">Copy</button>
