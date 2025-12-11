@@ -4,6 +4,30 @@ const fs = require('fs');
 
 const BASE_URL = 'http://localhost:8000';
 
+const ALL_PARAMS = [
+  'oldParams', 'wave_type',
+  'p_env_attack', 'p_env_sustain', 'p_env_punch', 'p_env_decay',
+  'p_base_freq', 'p_freq_limit', 'p_freq_ramp', 'p_freq_dramp',
+  'p_vib_strength', 'p_vib_speed',
+  'p_arp_mod', 'p_arp_speed',
+  'p_duty', 'p_duty_ramp',
+  'p_repeat_speed',
+  'p_pha_offset', 'p_pha_ramp',
+  'p_lpf_freq', 'p_lpf_ramp', 'p_lpf_resonance',
+  'p_hpf_freq', 'p_hpf_ramp',
+  'sound_vol', 'sample_rate', 'sample_size'
+];
+
+function compareParams(actual, expected, expect) {
+  for (const param of ALL_PARAMS) {
+    if (typeof expected[param] === 'number' && !Number.isInteger(expected[param])) {
+      expect(actual[param]).toBeCloseTo(expected[param], 5);
+    } else {
+      expect(actual[param]).toBe(expected[param]);
+    }
+  }
+}
+
 test.describe('jsfxr', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE_URL + '/index.html');
@@ -354,6 +378,35 @@ test.describe('jsfxr', () => {
       expect(isValidB58).toBe(true);
     });
 
+    test('copy code B58 round-trips all parameters', async ({ page }) => {
+      await page.click('button:has-text("Explosion")');
+      const originalParams = await page.evaluate(() => {
+        const p = {};
+        for (const k in PARAMS) {
+          if (PARAMS.hasOwnProperty(k)) p[k] = PARAMS[k];
+        }
+        return p;
+      });
+      const b58 = await page.inputValue('#copybuffer');
+
+      const decodedParams = await page.evaluate((b58str) => {
+        return sfxr.b58decode(b58str);
+      }, b58);
+
+      for (const param of ALL_PARAMS) {
+        if (param === 'oldParams' || param === 'sound_vol' ||
+            param === 'sample_rate' || param === 'sample_size') {
+          continue;
+        }
+        if (typeof originalParams[param] === 'number' &&
+            !Number.isInteger(originalParams[param])) {
+          expect(decodedParams[param]).toBeCloseTo(originalParams[param], 4);
+        } else {
+          expect(decodedParams[param]).toBe(originalParams[param]);
+        }
+      }
+    });
+
     test('copy button copies to clipboard', async ({ context, page }) => {
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
       await page.click('button:has-text("Pickup/coin")');
@@ -382,8 +435,16 @@ test.describe('jsfxr', () => {
   });
 
   test.describe('JSON download', () => {
-    test('JSON link has data URI with valid JSON', async ({ page }) => {
+    test('JSON link has data URI with all parameters', async ({ page }) => {
       await page.click('button:has-text("Pickup/coin")');
+      const originalParams = await page.evaluate(() => {
+        const p = {};
+        for (const k in PARAMS) {
+          if (PARAMS.hasOwnProperty(k)) p[k] = PARAMS[k];
+        }
+        return p;
+      });
+
       const href = await page.getAttribute('#json', 'href');
       expect(href).toMatch(/^data:text\/plain;charset=UTF-8,/);
 
@@ -391,8 +452,8 @@ test.describe('jsfxr', () => {
         href.replace('data:text/plain;charset=UTF-8,', '')
       );
       const parsed = JSON.parse(jsonStr);
-      expect(parsed).toHaveProperty('wave_type');
-      expect(parsed).toHaveProperty('p_base_freq');
+
+      compareParams(parsed, originalParams, expect);
     });
 
     test('JSON filename matches preset', async ({ page }) => {
@@ -415,51 +476,84 @@ test.describe('jsfxr', () => {
       expect(parsed).toHaveProperty('wave_type');
     });
 
-    test('deserialize restores parameters from textarea', async ({ page }) => {
+    test('deserialize restores all parameters from textarea', async ({ page }) => {
       const testParams = {
         oldParams: true,
         wave_type: 3,
-        p_env_attack: 0.1,
-        p_env_sustain: 0.2,
-        p_env_punch: 0.3,
-        p_env_decay: 0.4,
-        p_base_freq: 0.5,
-        p_freq_limit: 0,
-        p_freq_ramp: 0,
-        p_freq_dramp: 0,
-        p_vib_strength: 0,
-        p_vib_speed: 0,
-        p_arp_mod: 0,
-        p_arp_speed: 0,
-        p_duty: 0,
-        p_duty_ramp: 0,
-        p_repeat_speed: 0,
-        p_pha_offset: 0,
-        p_pha_ramp: 0,
-        p_lpf_freq: 1,
-        p_lpf_ramp: 0,
-        p_lpf_resonance: 0,
-        p_hpf_freq: 0,
-        p_hpf_ramp: 0,
-        sound_vol: 0.25,
-        sample_rate: 44100,
-        sample_size: 8
+        p_env_attack: 0.123,
+        p_env_sustain: 0.234,
+        p_env_punch: 0.345,
+        p_env_decay: 0.456,
+        p_base_freq: 0.567,
+        p_freq_limit: 0.111,
+        p_freq_ramp: -0.222,
+        p_freq_dramp: 0.333,
+        p_vib_strength: 0.444,
+        p_vib_speed: 0.555,
+        p_arp_mod: -0.666,
+        p_arp_speed: 0.777,
+        p_duty: 0.888,
+        p_duty_ramp: -0.999,
+        p_repeat_speed: 0.321,
+        p_pha_offset: -0.432,
+        p_pha_ramp: 0.543,
+        p_lpf_freq: 0.654,
+        p_lpf_ramp: -0.765,
+        p_lpf_resonance: 0.876,
+        p_hpf_freq: 0.987,
+        p_hpf_ramp: -0.098,
+        sound_vol: 0.5,
+        sample_rate: 22050,
+        sample_size: 16
       };
 
       await page.click('button:has-text("Serialize")');
       await page.fill('textarea', JSON.stringify(testParams));
       await page.click('button:has-text("Deserialize")');
 
-      const waveType = await page.evaluate(() => PARAMS.wave_type);
-      expect(waveType).toBe(3);
+      const loadedParams = await page.evaluate(() => {
+        const p = {};
+        for (const k in PARAMS) {
+          if (PARAMS.hasOwnProperty(k)) p[k] = PARAMS[k];
+        }
+        return p;
+      });
 
-      const envAttack = await page.evaluate(() => PARAMS.p_env_attack);
-      expect(envAttack).toBeCloseTo(0.1, 5);
+      compareParams(loadedParams, testParams, expect);
+    });
+
+    test('serialize then deserialize round-trips all parameters', async ({ page }) => {
+      await page.click('button:has-text("Synth")');
+      const originalParams = await page.evaluate(() => {
+        const p = {};
+        for (const k in PARAMS) {
+          if (PARAMS.hasOwnProperty(k)) p[k] = PARAMS[k];
+        }
+        return p;
+      });
+
+      await page.click('button:has-text("Serialize")');
+      const serialized = await page.inputValue('textarea');
+
+      await page.click('button:has-text("Random")');
+
+      await page.fill('textarea', serialized);
+      await page.click('button:has-text("Deserialize")');
+
+      const restoredParams = await page.evaluate(() => {
+        const p = {};
+        for (const k in PARAMS) {
+          if (PARAMS.hasOwnProperty(k)) p[k] = PARAMS[k];
+        }
+        return p;
+      });
+
+      compareParams(restoredParams, originalParams, expect);
     });
   });
 
   test.describe('File upload', () => {
-    test('file input accepts JSON files', async ({ page }) => {
+    test('file upload restores all parameters', async ({ page }) => {
       const fixtureDir = path.join(__dirname, 'test-fixtures');
       if (!fs.existsSync(fixtureDir)) {
         fs.mkdirSync(fixtureDir);
@@ -468,45 +562,48 @@ test.describe('jsfxr', () => {
       const testParams = {
         oldParams: true,
         wave_type: 2,
-        p_env_attack: 0.05,
-        p_env_sustain: 0.15,
-        p_env_punch: 0.25,
-        p_env_decay: 0.35,
-        p_base_freq: 0.45,
-        p_freq_limit: 0,
-        p_freq_ramp: 0,
-        p_freq_dramp: 0,
-        p_vib_strength: 0,
-        p_vib_speed: 0,
-        p_arp_mod: 0,
-        p_arp_speed: 0,
-        p_duty: 0,
-        p_duty_ramp: 0,
-        p_repeat_speed: 0,
-        p_pha_offset: 0,
-        p_pha_ramp: 0,
-        p_lpf_freq: 1,
-        p_lpf_ramp: 0,
-        p_lpf_resonance: 0,
-        p_hpf_freq: 0,
-        p_hpf_ramp: 0,
-        sound_vol: 0.25,
-        sample_rate: 44100,
-        sample_size: 8
+        p_env_attack: 0.051,
+        p_env_sustain: 0.152,
+        p_env_punch: 0.253,
+        p_env_decay: 0.354,
+        p_base_freq: 0.455,
+        p_freq_limit: 0.121,
+        p_freq_ramp: -0.232,
+        p_freq_dramp: 0.343,
+        p_vib_strength: 0.454,
+        p_vib_speed: 0.565,
+        p_arp_mod: -0.676,
+        p_arp_speed: 0.787,
+        p_duty: 0.898,
+        p_duty_ramp: -0.909,
+        p_repeat_speed: 0.313,
+        p_pha_offset: -0.424,
+        p_pha_ramp: 0.535,
+        p_lpf_freq: 0.646,
+        p_lpf_ramp: -0.757,
+        p_lpf_resonance: 0.868,
+        p_hpf_freq: 0.979,
+        p_hpf_ramp: -0.089,
+        sound_vol: 0.75,
+        sample_rate: 11025,
+        sample_size: 16
       };
 
       const fixturePath = path.join(fixtureDir, 'test-sound.json');
       fs.writeFileSync(fixturePath, JSON.stringify(testParams));
 
       await page.setInputFiles('#open_save_impl', fixturePath);
-
       await page.waitForFunction(() => PARAMS.wave_type === 2);
 
-      const waveType = await page.evaluate(() => PARAMS.wave_type);
-      expect(waveType).toBe(2);
+      const loadedParams = await page.evaluate(() => {
+        const p = {};
+        for (const k in PARAMS) {
+          if (PARAMS.hasOwnProperty(k)) p[k] = PARAMS[k];
+        }
+        return p;
+      });
 
-      const envAttack = await page.evaluate(() => PARAMS.p_env_attack);
-      expect(envAttack).toBeCloseTo(0.05, 5);
+      compareParams(loadedParams, testParams, expect);
     });
   });
 
@@ -543,6 +640,54 @@ test.describe('jsfxr', () => {
 
       const secondDataURI = await page.evaluate(() => SOUND.dataURI);
       expect(firstDataURI).toBe(secondDataURI);
+    });
+  });
+
+  test.describe('Volume persistence', () => {
+    test('volume setting resets when generating new sounds', async ({ page }) => {
+      // Set volume to ~75%
+      const slider = page.locator('#sound_vol');
+      const box = await slider.boundingBox();
+      const targetX = box.x + 0.75 * box.width;
+      const centerY = box.y + box.height / 2;
+      
+      await page.mouse.move(box.x + 10, centerY);
+      await page.mouse.down();
+      await page.mouse.move(targetX, centerY);
+      await page.mouse.up();
+      await page.waitForTimeout(100);
+
+      const volAfterSlider = await page.evaluate(() => PARAMS.sound_vol);
+      expect(volAfterSlider).toBeGreaterThan(0.7);
+
+      // Generate a new sound
+      await page.click('button:has-text("Explosion")');
+
+      // Volume should reset to default
+      const volAfterGen = await page.evaluate(() => PARAMS.sound_vol);
+      expect(volAfterGen).toBe(0.25);
+    });
+
+    test('sample rate persists when generating new sounds', async ({ page }) => {
+      await page.click('label[for="22050"]');
+      const rateAfterSelect = await page.evaluate(() => PARAMS.sample_rate);
+      expect(rateAfterSelect).toBe(22050);
+
+      await page.click('button:has-text("Jump")');
+
+      const rateAfterGen = await page.evaluate(() => PARAMS.sample_rate);
+      expect(rateAfterGen).toBe(22050);
+    });
+
+    test('sample size persists when generating new sounds', async ({ page }) => {
+      await page.click('label[for="16"]');
+      const sizeAfterSelect = await page.evaluate(() => PARAMS.sample_size);
+      expect(sizeAfterSelect).toBe(16);
+
+      await page.click('button:has-text("Powerup")');
+
+      const sizeAfterGen = await page.evaluate(() => PARAMS.sample_size);
+      expect(sizeAfterGen).toBe(16);
     });
   });
 });
