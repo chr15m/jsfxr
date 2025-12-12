@@ -6,46 +6,76 @@
 
 <meta charset="utf-8" >
 <meta name="viewport" content="width=device-width, initial-scale=0.95">
-<link href="/icon.png" rel="icon">
-
-<!-- twitter social -->
-<meta content="https://sfxr.me/header.png" name="twitter:image:src">
-<meta content="@mccrmx" name="twitter:site">
-<meta content="@mccrmx" name="twitter:creator">
-<meta content="summary" name="twitter:card">
-<meta content="jsfxr" name="twitter:title">
-<meta content="8-bit game sound effects generator in JavaScript." name="twitter:description">
-<!-- other social -->
-<meta content="https://sfxr.me/header.png" property="og:image">
-<meta content="jsfxr" property="og:site_name">
-<meta content="website" property="og:type">
-<meta content="jsfxr" property="og:title">
-<meta content="https://sfxr.me/" property="og:url">
-<meta content="8-bit game sound effects generator in JavaScript." property="og:description">
+<link type="image/png" href="/icon.png" rel="icon">
 
 <script src="riffwave.js"></script>
 <script src="sfxr.js"></script>
-<link type="text/css" href="jquery/jquery-ui.css" rel="Stylesheet" />
-<script type="text/javascript" src="jquery/jquery.min.js"></script>
-<script type="text/javascript" src="jquery/jquery-ui.min.js"></script>
 
 <script>
-
-var PARAMS;
-var SOUND;
-var SOUND_VOL = 0.25;
-var SAMPLE_RATE = 44100;
-var SAMPLE_SIZE = 8;
-
 Params.prototype.query = function () {
   var result = "";
-  var that = this;
-  $.each(this, function (key,value) {
-    if (that.hasOwnProperty(key))
-      result += "&" + key + "=" + value;
-  });
+  for (let key in this) {
+    if (this.hasOwnProperty(key)) {
+      result += "&" + key + "=" + this[key];
+    }
+  }
   return result.substring(1);
 };
+
+let SOUND;
+let PARAMS;
+let wav;
+let json;
+let copyBuffer;
+let share;
+let file_size;
+let num_samples;
+let clipping;
+let sfx;
+let serialize;
+let textarea;
+let open_save_impl;
+
+const SOUND_VOL = 0.25;
+let SAMPLE_RATE = 44100;
+let SAMPLE_SIZE = 8;
+
+let h, w, canvas;
+
+function updateWaveform(data) {
+  if (canvas === null) {
+    return;
+  }
+
+  let min = 1,
+    max = -1;
+  data.forEach((i) => {
+    if (i < min) min = i;
+    if (i > max) max = i;
+  });
+  let a = max - min;
+
+  canvas.width = w;
+  canvas.height = h;
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
+
+  const ctx = canvas.getContext("2d");
+
+  // ctx.fillStyle = "black";
+  ctx.clearRect(0, 0, w, h);
+
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "#5b5b5b";
+  ctx.beginPath();
+  ctx.moveTo(0, h / 2);
+
+  data.forEach((value, index) => {
+    ctx.lineTo((index * w) / data.length, (value / a) * h + h / 2);
+  });
+
+  ctx.stroke();
+}
 
 function gen(fx) {
   PARAMS = new Params();
@@ -60,8 +90,10 @@ function gen(fx) {
     PARAMS[fx]();
     name = fx;
   }
-  $("#wav").text(name + ".wav").attr("download", name + ".wav");
-  $("#json").text(name + ".json").attr("download", name + ".json");
+  wav.innerText = `${name}.wav`;
+  wav.setAttribute("download", `${name}.wav`);
+  json.innerText = `${name}.json`;
+  json.setAttribute("download", `${name}.json`);
   updateUi();
   play();
 }
@@ -80,29 +112,37 @@ function play(noregen) {
       }
       //$("#permalink").attr("href", "#" + b58)
       //$("#permalink").text(b58)
-      $("#copybuffer").val(b58);
-      $("#share").attr("href", "#" + b58)
-      SOUND = new SoundEffect(PARAMS).generate();
-      $("#file_size").text(Math.round(SOUND.wav.length / 1024) + "kB");
-      $("#num_samples").text(SOUND.header.subChunk2Size / 
-                             (SOUND.header.bitsPerSample >> 3));
-      $("#clipping").text(SOUND.clipping);
+      copyBuffer.value = b58;
+      share.setAttribute("href", "#" + b58);
+
+      SOUND = sfxr.toWave(PARAMS);
+      file_size.innerText = Math.round(SOUND.wav.length / 1024) + "kB";
+      num_samples.innerText = SOUND.header.subChunk2Size / (SOUND.header.bitsPerSample >> 3);
+      clipping.innerText = SOUND.clipping;
     }
-    
-    $("#wav").attr("href", SOUND.dataURI);
-    $("#json").attr("href", 'data:text/plain;charset=UTF-8,' + encodeURIComponent(serialize_params_to_string()));
-    $("#sfx").attr("href", "sfx.wav?" + PARAMS.query());
-    
+
+    wav.setAttribute("href", SOUND.dataURI);
+    json.setAttribute("href", 'data:text/plain;charset=UTF-8,' +
+      encodeURIComponent(serialize_params_to_string()));
+
+    updateWaveform(SOUND.buffer);
+
     SOUND.getAudio().play();
 }
 
 function copy() {
-  var b = $("#copybuffer");
-  b.css("display", "block");
+  copyBuffer.style.display = "block";
   //b.val($("#permalink").text());
-  b.select();
+  copyBuffer.select();
   document.execCommand("copy");
-  b.css("display", "none");
+  copyBuffer.style.display = "none";
+}
+
+function copyText(element) {
+  element.select();
+  document.execCommand("copy");
+  element.setSelectionRange(0, 0);
+  element.blur();
 }
 
 function serialize_params_to_string() {
@@ -110,8 +150,12 @@ function serialize_params_to_string() {
 }
 
 function serialize_params() {
-  $("textarea").val(serialize_params_to_string());
-  $("#serialize").show();
+  textarea.value = JSON.stringify(PARAMS, null, 2);
+  serialize.style.display = "block";
+}
+
+function deserialize_params() {
+  deserialize_params_from_string(textarea.value);
 }
 
 function deserialize_params_from_string(json_string) {
@@ -121,12 +165,8 @@ function deserialize_params_from_string(json_string) {
   updateUi();
 }
 
-function deserialize_params() {
-  deserialize_params_from_string($("textarea").val());
-}
-
 function upload_params_from_file() {
-  $("#open_save_impl").click();
+  open_save_impl.click();
 }
 
 function on_upload_file_selected(e) {
@@ -137,621 +177,674 @@ function on_upload_file_selected(e) {
   var reader = new FileReader();
   reader.onload = function(e) {
     var contents = e.target.result;
-    $("textarea").val(contents);
+    textarea.value = contents;
     deserialize_params_from_string(contents);
-    $("#open_save_impl").val("");
+    open_save_impl.value = "";
   };
   reader.readAsText(file);
 }
 
-function disenable() {
+function disable() {
   var duty = PARAMS.wave_type == SQUARE || PARAMS.wave_type == SAWTOOTH;
-  $("#p_duty").slider("option", "disabled", !duty);
-  $("#p_duty_ramp").slider("option", "disabled", !duty);
+
+  if (duty) {
+    document.getElementById("p_duty")?.removeAttribute("disabled");
+    document.getElementById("p_duty_ramp")?.removeAttribute("disabled");
+  } else {
+    document.getElementById("p_duty")?.setAttribute("disabled", "disabled");
+    document
+      .getElementById("p_duty_ramp")
+      ?.setAttribute("disabled", "disabled");
+  }
 }
 
 function updateUi() {
-  $.each(PARAMS, function (param, value) {
+  for (let param in PARAMS) {
+    let value = PARAMS[param];
     if (param == "wave_type") {
-      $("#shape input:radio[value=" + value + "]").
-        prop('checked', true).button("refresh");
+      let item = document.querySelector(
+        `#shape input[type='radio'][value='${value}']`
+      );
+      item.checked = true;
     } else if (param == "sample_rate") {
-      $("#hz input:radio[value=" + value + "]").
-        prop('checked', true).button("refresh");
+      let item = document.querySelector(
+        `#hz input[type='radio'][value='${value}']`
+      );
+      item.checked = true;
     } else if (param == "sample_size") {
-      $("#bits input:radio[value=" + value + "]").
-        prop('checked', true).button("refresh");
+      let item = document.querySelector(
+        `#bits input[type='radio'][value='${value}']`
+      );
+      item.checked = true;
     } else {
-      var id = "#" + param;
-      $(id).slider("value", 1000 * value);
-      $(id).each(function(){convert(this, PARAMS[this.id]);});
-    }
-  });
-  disenable();
-}
-    
-
-$(function() {
-  $("#shape").buttonset();
-  $("#hz").buttonset();
-  $("#bits").buttonset();
-  $("#shape input:radio").change(function (event) {
-    PARAMS.wave_type = parseInt(event.target.value);
-    disenable();
-    play();
-  });
-  $("#hz input:radio").change(function (event) {
-    SAMPLE_RATE = PARAMS.sample_rate = parseInt(event.target.value);
-    play();
-  });
-  $("#bits input:radio").change(function (event) {
-    SAMPLE_SIZE = PARAMS.sample_size = parseInt(event.target.value);
-    play();
-  });
-  $("button:not(.pixel)").button();
-  $(".slider").slider({
-    value: 1000,
-    min: 0,
-    max: 1000,
-    slide: function (event, ui) {
-      convert(event.target, ui.value / 1000.0);
-    },
-    change: function(event, ui) {
-      if (event.originalEvent) {
-        PARAMS[event.target.id] = ui.value / 1000.0;
-        convert(event.target, PARAMS[event.target.id]);
-        play();
+      let item = document.getElementById(param);
+      if (item && item.type === "range") {
+        item.value = value * 1000;
+        convert(item);
       }
     }
-  });
-  $(".slider").filter(".signed").
-    slider("option", "min", -1000).
-    slider("value", 0);
-  $('.slider').each(function () {
-      var is = this.id;
-      if (!$('label[for="' + is + '"]').length) 
-        $(this).parent().parent().find('th').append($('<label>', 
-                                                      {for: is}));
-    });
-
-  for (var p in sliders) {
-    var control = $('#' + p)[0];
-    control.convert = sliders[p];
-    control.units = units[p];
   }
-  
+  disable();
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  wav = document.getElementById("wav");
+  json = document.getElementById("json");
+  copyBuffer = document.getElementById("copybuffer");
+  share = document.getElementById("share");
+  file_size = document.getElementById("file_size");
+  num_samples = document.getElementById("num_samples");
+  clipping = document.getElementById("clipping");
+  serialize = document.getElementById("serialize");
+  textarea = document.querySelector("textarea");
+  open_save_impl = document.getElementById("open_save_impl");
+  open_save_impl.addEventListener("change", on_upload_file_selected);
+
+  canvas = document.getElementById("waveform");
+  if (canvas) {
+    w = canvas.offsetWidth;
+    h = (w * 9) / 16;
+  }
+
+  document.querySelectorAll("#shape input[type=radio]").forEach((item) => {
+    item.addEventListener("change", (event) => {
+      PARAMS.wave_type = parseInt(event.target.value);
+      disable();
+      play();
+    });
+  });
+
+  document.querySelectorAll("#hz input[type=radio]").forEach((item) => {
+    item.addEventListener("change", (event) => {
+      SAMPLE_RATE = PARAMS.sample_rate = parseInt(event.target.value);
+      play();
+    });
+  });
+
+  document.querySelectorAll("#bits input[type=radio]").forEach((item) => {
+    item.addEventListener("change", (event) => {
+      SAMPLE_SIZE = PARAMS.sample_size = parseInt(event.target.value);
+      play();
+    });
+  });
+
+  document.querySelectorAll(".slider").forEach((item) => {
+    let id = item.id;
+
+    const div = document.createElement("div");
+    item.replaceWith(div);
+
+    let label = document.createElement("label");
+    label.setAttribute("for", id);
+    label.innerHTML = item.dataset.title;
+    div.appendChild(label);
+
+    let output = document.createElement("output");
+    output.setAttribute("for", id);
+    div.appendChild(output);
+
+    if (item.dataset.position === "after") {
+      div.appendChild(item);
+    } else {
+      div.insertAdjacentElement("afterbegin", item);
+    }
+
+    item.type = "range";
+    item.min = 0;
+    item.max = 1000;
+    item.value = 1000;
+    if (item.classList.contains("signed")) {
+      item.min = -1000;
+      item.value = 0;
+    }
+
+    item.label = label;
+    item.output = output;
+
+    item.addEventListener("input", () => {
+      convert(item);
+    });
+    item.addEventListener("change", () => {
+      PARAMS[id] = item.value / 1000;
+      convert(item);
+      play();
+    });
+  });
+
   gen(document.location.hash || "pickupCoin");
 });
 
-function convert(control, v) {
-  if (control.convert) {
-    v = control.convert(v);
-    control.convertedValue = v;
-    if (typeof control.units === 'function')
-      v = control.units(v);
-    else
-      v = v.toPrecision(4) + ' ' + control.units;
-    $('label[for="' + control.id + '"]').html(v);
+function convert(item) {
+  let id = item.id;
+  let conv = sliders[id];
+  let unit = units[id];
+  let value = conv(item.value / 1000);
+  if (typeof unit === "function") {
+    value = unit(value);
+  } else {
+    value = value.toPrecision(4) + " " + unit;
   }
+  item.output.value = value;
 }
-
 </script>
 
 <style>
-
-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 2em;
+* {
+    box-sizing: border-box;
 }
 
-nav img {
-  max-height: 64px;
-}
-
-:root {
-  --b-button: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMjgiIGhlaWdodD0iMjgiIHZpZXdCb3g9IjAgMCAxNCAxNCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IHhsaW5rOmhyZWY9IiNhIiBpZD0iYiIgeDE9IjcuMTQiIHgyPSI3LjIxNiIgeTE9IjEwLjMyMiIgeTI9IjEuNjMxIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNCAtMTQpIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIvPjxsaW5lYXJHcmFkaWVudCBpZD0iYSI+PHN0b3Agb2Zmc2V0PSIwIiBzdHlsZT0ic3RvcC1jb2xvcjojMTdhOTE0O3N0b3Atb3BhY2l0eToxIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdHlsZT0ic3RvcC1jb2xvcjojNDU5MDFmO3N0b3Atb3BhY2l0eToxIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHBhdGggZD0iTS0xMy0xM2gxMnYxMmgtMTJ6IiBzdHlsZT0iZmlsbDp1cmwoI2IpO2ZpbGwtb3BhY2l0eToxIiB0cmFuc2Zvcm09InNjYWxlKC0xKSIvPjxwYXRoIGZpbGw9IiMzMTM3NDIiIGQ9Ik0wIDFoMXYxMkgwek0xIDBoMTJ2MUgxek0xMyAxaDF2MTJoLTF6TTEgMTNoMTJ2MUgxeiIgc3R5bGU9ImZpbGw6IzAwMCIvPjxwYXRoIGZpbGw9IiM2NjYiIGZpbGwtb3BhY2l0eT0iLjQxNCIgZD0iTTIgMTJoMTF2MUgyek0xMiAyaDF2MTBoLTF6Ii8+PHBhdGggZmlsbD0iI2ZmZiIgZmlsbC1vcGFjaXR5PSIuNTQ2IiBkPSJNMSAxaDExdjFIMXpNMSAyaDF2MTBIMXoiLz48cGF0aCBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9Ii41NDYiIGQ9Ik0xIDFoMnYySDF6Ii8+PHBhdGggZmlsbD0iIzY2NiIgZmlsbC1vcGFjaXR5PSIuNDE0IiBkPSJNMTEgMTFoMnYyaC0yeiIvPjxwYXRoIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjU0NiIgZD0iTTIgMTFoMXYxSDJ6TTExIDJoMXYxaC0xeiIvPjxwYXRoIGQ9Ik0xIDEyaDF2MUgxek0xMiAxaDF2MWgtMXpNMSAxaDF2MUgxek0xMiAxMmgxdjFoLTF6IiBzdHlsZT0iZmlsbDojMDAwO2ZpbGwtb3BhY2l0eToxIi8+PC9zdmc+);
-  --b-button-invert: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyOCIgaGVpZ2h0PSIyOCIgdmlld0JveD0iMCAwIDE0IDE0Ij48cGF0aCBkPSJNMCAxaDF2MTJIMHpNMSAwaDEydjFIMXpNMTMgMWgxdjEyaC0xek0xIDEzaDEydjFIMXoiIHN0eWxlPSJmaWxsOiMwMDAiIHRyYW5zZm9ybT0icm90YXRlKDE4MCA3IDcpIi8+PHBhdGggZD0iTTEgMWgxMnYxMkgxeiIgc3R5bGU9ImZpbGw6IzQ1OTAxZjtmaWxsLW9wYWNpdHk6MSIgdHJhbnNmb3JtPSJyb3RhdGUoMTgwIDcgNykiLz48cGF0aCBkPSJNMiAxMmgxMXYxSDJ6TTEyIDJoMXYxMGgtMXoiIHN0eWxlPSJmaWxsOiM2NjY7ZmlsbC1vcGFjaXR5Oi40MTQxMDAwMiIgdHJhbnNmb3JtPSJyb3RhdGUoMTgwIDcgNykiLz48cGF0aCBkPSJNMSAxaDExdjFIMXpNMSAyaDF2MTBIMXoiIHN0eWxlPSJmaWxsOiNmZmY7ZmlsbC1vcGFjaXR5Oi41NDYyNTk5OCIgdHJhbnNmb3JtPSJyb3RhdGUoMTgwIDcgNykiLz48cGF0aCBkPSJNMSAxaDJ2MkgxeiIgc3R5bGU9ImZpbGw6I2ZmZjtmaWxsLW9wYWNpdHk6LjU0NjI1OTk4IiB0cmFuc2Zvcm09InJvdGF0ZSgxODAgNyA3KSIvPjxwYXRoIGQ9Ik0xMSAxMWgydjJoLTJ6IiBzdHlsZT0iZmlsbDojNjY2O2ZpbGwtb3BhY2l0eTouNDE0MTAwMDIiIHRyYW5zZm9ybT0icm90YXRlKDE4MCA3IDcpIi8+PHBhdGggZD0iTTIgMTFoMXYxSDJ6TTExIDJoMXYxaC0xeiIgc3R5bGU9ImZpbGw6I2ZmZjtmaWxsLW9wYWNpdHk6LjU0NjI1OTk4IiB0cmFuc2Zvcm09InJvdGF0ZSgxODAgNyA3KSIvPjxwYXRoIGQ9Ik0xIDEyaDF2MUgxek0xMiAxaDF2MWgtMXpNMSAxaDF2MUgxek0xMiAxMmgxdjFoLTF6IiBzdHlsZT0iZmlsbDojMDAwO2ZpbGwtb3BhY2l0eToxIi8+PC9zdmc+);
-}
-
-button.pixel {
-  background: none;
-  border-image-source: var(--b-button);
-  border-image-slice: 9 9 9 9 fill;
-  border-image-repeat: stretch;
-  border-width: 9px;
-  font-size: 1.5em;
-  font-weight: bold;
-  color: white;
-  transform: translateY(0px);
-  transition: transform 0.15s cubic-bezier(0,0,.27,20);
-  width: 100%;
-  min-width: 12em;
-  cursor: pointer;
-}
-
-button.pixel svg path {
-  fill: white;
-}
-
-button.pixel:active {
-  border-image-source: var(--b-button-invert);
-  transform: translateY(4px);
-  transition: transform 0.01s cubic-bezier(0,-0.06,.27,1.8);
-}
-
-button.pixel:disabled {
-  border-image-source: var(--b-button);
-  transform: translateY(0px);
-  opacity: 0.5;
-}
-
-button.pixel svg {
-  max-height: 32px;
-  max-width: 32px;
-}
-
-nav a span {
-  font-size: 24px;
-  font-weight: bold;
-  color: #1a1a1a;
-  margin: 0.25em;
-}
-
-nav span p {
-  margin-top: 0.125em;
-}
-
-@media screen and (max-width: 600px) {
-  nav {
-    flex-direction: column;
-  }
-
-  nav > * {
-    margin: 1em;
-  }
-}
-
-#links {
-  margin-top: 4em;
-}
-
-button, #soundexport, #sound_vol {
-  width: 160px;
-}
-
-#sound_vol {
-  margin-top: 4px;
-}
-
-#shape label {
-  width: 80px;
-}
-
-#hz label {
-  width: 40px;
-}
-
-#bits label {
-  width: 80px;
-}
-
-#wav, #json {
-  font-weight: bold;
-}
-
-#share {
-  font-weight: bold;
-  font-size: 1.25em;
-  margin-top: 1em;
-  display: inline-block;
-}
-
-#permalink {
-  font-size: 0.75em;
-  margin-left: auto;
-  margin-right: auto;
-  text-align: center;
-  display: block;
-  margin-top: 1em;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  overflow: hidden;
-}
-
-div {
-  display: inline-block;
-}
-
-h1 {
-  padding-right: 1em;
-  padding-top: 0;
-  margin-top: 0;
+html {
+    font: 10pt Helvetica, Arial, sans-serif;
 }
 
 body {
-  margin: 0px;
-  padding: 0px;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 800px;
+    width: 98%;
 }
 
-#app {
-  margin-left: auto;
-  margin-right: auto;
-  max-width: 800px;
-  width: 98%;
-  text-align: center;
+h1 {
+    font-size: 24pt;
+    padding-right: 1em;
+    padding-top: 0;
+    margin-top: 0;
 }
 
-.slider {
-  width: 120px;
+h2 {
+    font-size: 12pt;
+    text-align: center;
+    font-weight: 400;
 }
 
-.ui-widget-content .ui-state-default {
-  border-color: #F58400;
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 2em;
 }
 
-button[onclick*="play"] {
-  border: 1px solid #4caf50;
-  background: #4cbb50 url(jquery/images/ui-bg_gloss-wave_25_333333_500x100.png) 50% 50% repeat-x;
-  background-color: #4cbb50;
-  font-weight: bold;
-  color: #ffffff;
-  position: relative;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
-}
-
-button[onclick*="play"]:before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(76, 187, 80, 0.6);
-  pointer-events: none;
-  z-index: 0;
-}
-
-button[onclick*="play"] span {
-  position: relative;
-  z-index: 1;
-}
-
-button[onclick*="play"]:hover {
-  border: 1px solid #5cbf60;
-  background: #55cc5a url(jquery/images/ui-bg_gloss-wave_25_333333_500x100.png) 50% 50% repeat-x;
-  background-color: #55cc5a;
-}
-
-button[onclick*="play"]:hover:before {
-  background-color: rgba(85, 204, 90, 0.6);
-}
-
-* {
-  font: 10pt Helvetica;
-}
-
-h1 { font-size: 24pt; }
-h2 { font-size: 12pt; }
-
-button, input, label {
-  font-size: 10px;
-}
-
-div {
-  vertical-align: top;
-}
-
-th {
-  padding-left: 1em;
-  text-align: left;
-}
-
-hr {
-  font-size: 3px;
-}
-
-#demo-frame > div.demo { padding: 10px !important; }
-
-div.demo {
-   text-align: center;
-   margin-left: auto;
-   margin-right: auto;
-}
-
-table {
-  margin-left: 0.25em;
-}
-
-div#export {
-  text-align: center;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-#stats td {
-  text-align: right;
-}
-
-#stats {
-  width: 80%;
+header img {
+    max-height: 64px;
 }
 
 a {
-  text-decoration: none;
-  color: #0000ff;
+    text-decoration: none;
+    color: #00f;
 }
 
-#uncopy {
+#sound_vol,
+#soundexport,
+button {
+    width: 160px;
+}
+
+#sound_vol {
+    margin-top: 4px;
+    display: block;
+}
+
+#shape label {
+    width: 80px;
+}
+
+#hz label {
+    width: 40px;
+}
+
+#bits label {
+    width: 80px;
+}
+
+#wav {
+    font-weight: 700;
+}
+
+#share {
+    font-weight: 700;
+    font-size: 1.25em;
+    margin-top: 1em;
+    display: inline-block;
+}
+
+#permalink {
+    font-size: 0.75em;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    display: block;
+    margin-top: 1em;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+fieldset {
+    border-style: solid none none;
+    border-color: #ccc;
+    border-width: 1px;
+    margin-bottom: 1rem;
+    padding-left: 0;
+    padding-right: 0;
+    margin-bottom: 0.4rem;
+}
+
+fieldset legend {
+    margin: -0.5em;
+    padding: 0 0.2rem 0 0.2rem;
+    font-weight: 700;
+}
+
+fieldset>div {
+    display: flex;
+    align-items: baseline;
+    line-height: 0.95em;
+}
+
+fieldset output {
+    flex-grow: 1;
+    text-align: right;
+}
+
+label+output {
+    font-weight: 400;
+    display: inline-block;
+    margin-left: 0.4rem;
+    font-size: 10px;
+}
+
+.demo .slider {
+    width: 120px;
+    margin: 0 15px 0 0;
+    transform: translate(0, 2px);
+}
+
+table {
+    margin-left: 0.25em;
+}
+
+th {
+    padding-left: 1em;
+    text-align: left;
+}
+
+#export {
+    text-align: center;
+}
+
+#stats {
+    width: 80%;
+}
+
+#stats td {
+    text-align: right;
 }
 
 #generators button {
-  margin-bottom: 2px;
+    display: block;
+    margin-bottom: 2px;
+}
+
+#generators button:nth-child(12),
+#generators button:nth-child(13),
+#generators button:nth-child(2) {
+    margin-bottom: 18px;
 }
 
 #data {
-  width: 80%;
-  margin-top: 1em;
+    width: 80%;
+    margin: 1em auto;
+    text-align: center;
 }
 
 #data textarea {
-  width: 80%;
-  height: 40em;
-  margin-top: 1em;
-  min-width: 250px;
+    width: 80%;
+    height: 40em;
+    margin-top: 1em;
+    min-width: 250px;
+}
+
+#links {
+    margin: 4em auto 0 auto;
+    text-align: center;
 }
 
 #copybuffer {
-  display: none;
-  margin-left: auto;
-  margin-right: auto;
+    display: none;
 }
 
 #serialize {
-  display: none;
+    display: none;
 }
 
-#serialize > button {
-  margin-top: 1em;
+#serialize>button {
+    margin-top: 1em;
 }
 
-#open_save_impl {
-  display: none;
+#waveform {
+    border-radius: 0.4rem;
+    border: 1px solid #5b5b5b;
 }
 
-#pro {
-  width: 100%;
-  background-color: #232327;
-  color: white;
-  padding: 2em 2em;
-  margin: auto;
-  margin-top: 200px;
-  text-align: center;
-  box-sizing: border-box;
+main {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
 }
 
-#pro * {
-  font-size: 1.5rem;
+.buttonset {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
 }
 
-#pro h2 {
-  font-weight: bold;
-  font-size: 3em;
+.buttonset input {
+    appearance: none;
+    width: 0;
+    height: 0;
+    display: none;
 }
 
-#pro a {
-  color: white;
-  font-weight: bold;
-  text-decoration: underline;
+button {
+    border-radius: 6px;
 }
 
-#pro img {
-  max-width: 100%;
-  margin-top: 2em;
+.buttonset label,
+button {
+    border: 1px solid #666;
+    background: linear-gradient(to bottom, #626262 50%, #555 50%, #686868);
+    line-height: 1.4em;
+    color: #eee;
+    cursor: pointer;
+    padding: 0.4em;
+    text-align: center;
 }
 
-#pro button.pixel {
-  margin-top: 2em;
-  max-width: 15ch;
+.buttonset label:hover,
+button:hover {
+    background: linear-gradient(to bottom, #288db1 50%, #0078a3 50%, #3a96b8);
+    border-color: #59b4d4;
 }
 
-#pro table {
-  padding: 0px;
-  margin: 0px;
-  display: inline-block;
+button.play-button {
+    background: linear-gradient(to bottom, #45973c 50%, #3a833c 50%, #45973c);
+    border-color: #3a833c;
+    color: #ffffff;
+    font-weight: bold;
 }
 
-#pro table td {
-  vertical-align: top;
+button.play-button:hover {
+    background: linear-gradient(to bottom, #52a847 50%, #45973c 50%, #52a847);
+    border-color: #52a847;
 }
 
-#pro table th {
-  padding: 0.25em;
+.buttonset label:first-of-type {
+    border-radius: 6px 0 0 6px;
 }
 
-#pro table td:nth-child(3) {
-  text-align: left;
+.buttonset label:last-of-type {
+    border-radius: 0 6px 6px 0;
 }
 
-@media screen and (max-width: 600px) {
-  #pro table td {
-    height: 3em;
-  }
+.button,
+.buttonset input:checked+label {
+    background-image: linear-gradient(to bottom, #f58400, #f6982b);
+    border-color: #ffaf0f;
+}
 
-</script>
+input[type="range"] {
+    -webkit-appearance: none;
+}
 
+input[type="range"]::-moz-range-thumb {
+    border: 1px solid #f58400;
+    background: linear-gradient(to bottom, #626262 50%, #555 50%, #686868);
+    border-radius: 6px;
+    width: 1.35em;
+    height: 1.35em;
+    cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    border: 1px solid #f58400;
+    background: linear-gradient(to bottom, #626262 50%, #555 50%, #686868);
+    border-radius: 6px;
+    width: 1.35em;
+    height: 1.35em;
+    cursor: pointer;
+    transform: translateY(-2px);
+    appearance: none;
+}
+
+input[type="range"]::-moz-range-track {
+    border: none;
+    background: #262626;
+    height: 14px;
+    border-radius: 6px;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+    border: none;
+    background: #262626;
+    height: 14px;
+    border-radius: 6px;
+}
+
+input[type="range"]:disabled::-moz-range-thumb {
+    border: 1px solid #fbd3a5;
+    background: #c7c7c7;
+    cursor: default;
+}
+
+input[type="range"]:disabled::-webkit-slider-thumb {
+    border: 1px solid #fbd3a5;
+    background: #c7c7c7;
+    cursor: default;
+}
+
+input[type="range"]:disabled::-moz-range-track {
+    background: #a5a5a5;
+}
+
+input[type="range"]:disabled::-webkit-slider-runnable-track {
+    background: #a5a5a5;
+}
 </style>
 </head>
 
 <body>
 
-<section id="app">
-  <nav>
-    <img src="logo.svg"/>
-    <span>
-      <a href="https://pro.sfxr.me">
-        <button class="pixel">
-          Try Pro for free 
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path d="M528 448H112c-8.8 0-16 7.2-16 16v32c0 8.8 7.2 16 16 16h416c8.8 0 16-7.2 16-16v-32c0-8.8-7.2-16-16-16zm64-320c-26.5 0-48 21.5-48 48 0 7.1 1.6 13.7 4.4 19.8L476 239.2c-15.4 9.2-35.3 4-44.2-11.6L350.3 85C361 76.2 368 63 368 48c0-26.5-21.5-48-48-48s-48 21.5-48 48c0 15 7 28.2 17.7 37l-81.5 142.6c-8.9 15.6-28.9 20.8-44.2 11.6l-72.3-43.4c2.7-6 4.4-12.7 4.4-19.8 0-26.5-21.5-48-48-48S0 149.5 0 176s21.5 48 48 48c2.6 0 5.2-.4 7.7-.8L128 416h384l72.3-192.8c2.5.4 5.1.8 7.7.8 26.5 0 48-21.5 48-48s-21.5-48-48-48z"/></svg>
-        </button>
-       </a>
-       <p>Upgrade to Pro for more features</p>
-    </span>
-  </nav>
+  <header>
+    <img src="logo-opt.svg" alt="jsfxr" title="jsfxr" />
+  </header>
 
-<div id="generators">
-  <h2>Generator</h2>
-  <button onclick="gen('random')">Random</button> <br/>
-  <br/>
-  <button onclick="gen('pickupCoin')">Pickup/coin</button> <br/>
-  <button onclick="gen('laserShoot')">Laser/shoot</button> <br/>
-  <button onclick="gen('explosion')">Explosion</button> <br/>
-  <button onclick="gen('powerUp')">Powerup</button> <br/>
-  <button onclick="gen('hitHurt')">Hit/hurt</button> <br/>
-  <button onclick="gen('jump')">Jump</button> <br/>
-  <button onclick="gen('click')">Click</button> <br/>
-  <button onclick="gen('blipSelect')">Blip/select</button> <br/>
-  <button onclick="gen('synth')">Synth</button> <br/>
-  <button onclick="gen('tone')">Tone</button> <br/>
-  <br/>
-  <button onclick="mut()">Mutate</button> <br/>
-  <p>
-    <button onclick="play(true)">Play</button><br/>
-  </p>
-  <input id="copybuffer"/>
-</div>
+    <main>
+        <div id="generators">
+            <h2>Generator</h2>
+            <button onclick="gen('random')">Random</button>
 
-<div class="demo">
-<h2>Manual Settings</h2>
-<form>
-  <div id="shape">
-    <input type="radio" id="square" value=0 name="shape" />
-      <label for="square">Square</label>
-    <input type="radio" id="sawtooth" value=1 name="shape" checked="checked" />
-      <label for="sawtooth">Sawtooth</label>
-    <input type="radio" id="sine" value=2 name="shape" />
-      <label for="sine">Sine</label>
-    <input type="radio" id="noise" value=3 name="shape" />
-      <label for="noise">Noise</label>
-  </div>
-</form>
+            <button onclick="gen('pickupCoin')">Pickup/coin</button>
+            <button onclick="gen('laserShoot')">Laser/shoot</button>
+            <button onclick="gen('explosion')">Explosion</button>
+            <button onclick="gen('powerUp')">Powerup</button>
+            <button onclick="gen('hitHurt')">Hit/hurt</button>
+            <button onclick="gen('jump')">Jump</button>
+            <button onclick="gen('click')">Click</button>
+            <button onclick="gen('blipSelect')">Blip/select</button>
+            <button onclick="gen('synth')">Synth</button>
+            <button onclick="gen('tone')">Tone</button>
 
-<br/>
+            <button onclick="mut()">Mutate</button>
 
-<table>
-  <tr><th colspan=2>Envelope
-  <tr><td><div class="slider" id="p_env_attack"></div> <th>Attack time
-  <tr><td><div class="slider" id="p_env_sustain"></div> <th>Sustain time
-  <tr><td><div class="slider" id="p_env_punch"></div> <th>Sustain punch
-  <tr><td><div class="slider" id="p_env_decay"></div> <th>Decay time
-  <tr><th colspan=2>Frequency
-  <tr><td><div class="slider" id="p_base_freq"></div> <th>Start frequency
-  <tr><td><div class="slider" id="p_freq_limit"></div> <th>Min freq. cutoff
-  <tr><td><div class="signed slider" id="p_freq_ramp"></div> <th>Slide
-  <tr><td><div class="signed slider" id="p_freq_dramp"></div> <th>Delta slide
-  <tr><th colspan=2>Vibrato
-  <tr><td><div class="slider" id="p_vib_strength"></div> <th>Depth
-  <tr><td><div class="slider" id="p_vib_speed"></div> <th>Speed
-  <tr><th colspan=2>Arpeggiation
-  <tr><td><div class="signed slider" id="p_arp_mod"></div> <th>Frequency mult
-  <tr><td><div class="slider" id="p_arp_speed"></div> <th>Change speed
-  <tr><th colspan=2>Duty Cycle                           
-  <tr><td><div class="slider" id="p_duty"></div> <th>Duty cycle
-  <tr><td><div class="signed slider" id="p_duty_ramp"></div> <th>Sweep
-  <tr><th colspan=2>Retrigger
-  <tr><td><div class="slider" id="p_repeat_speed"></div> <th>Rate
-  <tr><th colspan=2>Flanger
-  <tr><td><div class="signed slider" id="p_pha_offset"></div> <th>Offset
-  <tr><td><div class="signed slider" id="p_pha_ramp"></div> <th>Sweep
-  <tr><th colspan=2>Low-Pass Filter
-  <tr><td><div class="slider" id="p_lpf_freq"></div> <th>Cutoff frequency
-  <tr><td><div class="signed slider" id="p_lpf_ramp"></div> <th>Cutoff sweep
-  <tr><td><div class="slider" id="p_lpf_resonance"></div> <th>Resonance
-  <tr><th colspan=2>High-Pass Filter
-  <tr><td><div class="slider" id="p_hpf_freq"></div> <th>Cutoff frequency
-  <tr><td><div class="signed slider" id="p_hpf_ramp"></div> <th>Cutoff sweep
-</table>
+            <button class="play-button" onclick="play(true)">Play</button>
 
+            <input id="copybuffer" />
+        </div>
 
-</div>
+        <div class="demo">
+            <h2>Manual Settings</h2>
+            <form>
+                <div id="shape" class="buttonset">
+                    <input type="radio" id="square" value=0 name="shape" />
+                    <label for="square">Square</label>
+                    <input type="radio" id="sawtooth" value=1 name="shape" checked="checked" />
+                    <label for="sawtooth">Sawtooth</label>
+                    <input type="radio" id="sine" value=2 name="shape" />
+                    <label for="sine">Sine</label>
+                    <input type="radio" id="noise" value=3 name="shape" />
+                    <label for="noise">Noise</label>
+                </div>
+            </form>
 
-<div id="export">
-  <h2>Sound</h2>
-  <button onclick="play(true)">Play</button><br/>
-  <p id="soundexport">
-  Download:</br><a id="wav">sfx.wav</a> <br/>
-  <br/>
-  Save As:</br><a id="json">sfx.json</a> <br/>
-  <!-- <a id="permalink"></a> -->
-  <!-- <a id="sfx">sfx.wav</a><br/> -->
+            <br />
 
-  <table id="stats">
-  <tr><th>File size:<td id="file_size">
-  <tr><th>Samples:<td id="num_samples">
-  <tr><th>Clipped:<td id="clipping">
-  </table>
-  </p>
+            <div>
+                <fieldset>
+                    <legend>Envelope</legend>
+                    <input class="slider" id="p_env_attack" data-title="Attack time" />
+                    <input class="slider" id="p_env_sustain" data-title="Sustain time" />
+                    <input class="slider" id="p_env_punch" data-title="Sustain punch" />
+                    <input class="slider" id="p_env_decay" data-title="Decay time" />
+                </fieldset>
+                <fieldset>
+                    <legend>Frequency</legend>
+                    <input class="slider" id="p_base_freq" data-title="Start frequency" />
+                    <input class="slider" id="p_freq_limit" data-title="Min freq. cutoff" />
+                    <input class="slider signed" id="p_freq_ramp" data-title="Slide" />
+                    <input class="slider signed" id="p_freq_dramp" data-title="Delta slide" />
+                </fieldset>
+                <fieldset>
+                    <legend>Vibrato</legend>
+                    <input class="slider" id="p_vib_strength" data-title="Depth" />
+                    <input class="slider" id="p_vib_speed" data-title="Speed" />
+                </fieldset>
+                <fieldset>
+                    <legend>Arpeggiation</legend>
+                    <input class="slider signed" id="p_arp_mod" data-title="Frequency mult" />
+                    <input class="slider" id="p_arp_speed" data-title="Change speed" />
+                </fieldset>
+                <fieldset>
+                    <legend>Duty Cycle</legend>
+                    <input class="slider" id="p_duty" data-title="Duty cycle" />
+                    <input class="slider signed" id="p_duty_ramp" data-title="Sweep" />
+                </fieldset>
+                <fieldset>
+                    <legend>Retrigger</legend>
+                    <input class="slider" id="p_repeat_speed" data-title="Rate" />
+                </fieldset>
+                <fieldset>
+                    <legend>Flanger</legend>
+                    <input class="slider signed" id="p_pha_offset" data-title="Offset" />
+                    <input class="slider signed" id="p_pha_ramp" data-title="Sweep" />
+                </fieldset>
+                <fieldset>
+                    <legend>Low-Pass Filter</legend>
+                    <input class="slider" id="p_lpf_freq" data-title="Cutoff frequency" />
 
-<form>
-  Gain <label for="sound_vol"></label><br/>
-  <div class="slider" id="sound_vol"></div> <br/>
-  <br/>
+                    <input class="slider signed" id="p_lpf_ramp" data-title="Cutoff sweep" />
+                    <input class="slider" id="p_lpf_resonance" data-title="Resonance" />
+                </fieldset>
+                <fieldset>
+                    <legend>High-Pass Filter</legend>
+                    <input class="slider" id="p_hpf_freq" data-title="Cutoff frequency" />
+                    <input class="slider signed" id="p_hpf_ramp" data-title="Cutoff sweep" />
+                </fieldset>
+            </div>
+        </div>
 
-  Sample Rate (Hz) <br/>
-  <div id="hz">
-    <input type="radio" id="44100" value=44100 name="hz" checked="checked"/>
-      <label for="44100">44k</label>
-    <input type="radio" id="22050" value=22050 name="hz" />
-      <label for="22050">22k</label>
-    <input type="radio" id="11025" value=11025 name="hz" />
-      <label for="11025">11k</label>
-    <input type="radio" id="5512" value=5512 name="hz" />
-      <label for="5512">6k</label>
-  </div>
+        <div id="export">
+            <h2>Sound</h2>
+            <button class="play-button" onclick="play(true)">Play</button>
 
-  <br/>
-  <br/>
-  Sample size
-  <br/>
-  <div id="bits">
-    <input type="radio" id="16" value=16 name="bits"/>
-      <label for="16">16 bit</label>
-    <input type="radio" id="8" value=8 name="bits" checked="checked"/>
-      <label for="8">8 bit</label>
-  </div>
-</form>
-<p><a id="share">🔗 permalink</a></p>
-<p><button onclick="copy()">Copy code</button></p>
-</div>
+            <p id="soundexport">
+                Download:</br>
+                <a id="wav">sfx.wav</a>
+                <br /><br />
+                Save As:</br>
+                <a id="json">sfx.json</a>
+            </p>
 
-<br/>
-<div id="data">
-  <button onclick="serialize_params();"> ▼ Serialize</button>
-  <button onclick="deserialize_params()"> ▲ Deserialize</button>
-  <button onclick="upload_params_from_file()"> ⇧ Open Save</button>
-  <input type="file" id="open_save_impl" accept="application/JSON" onchange="on_upload_file_selected.apply(this, arguments)" />
-  <div id="serialize">
-    <textarea></textarea>
-    <button onclick="$('textarea').select(); document.execCommand('copy');">Copy</button>
-    <button onclick="$('#serialize').hide();">Hide ✕</button>
-  </div>
-</div>
+            <table id="stats">
+                <tr>
+                    <th>File size:</th>
+                    <td id="file_size"></td>
+                </tr>
+                <tr>
+                    <th>Samples:</th>
+                    <td id="num_samples"></td>
+                </tr>
+                <tr>
+                    <th>Clipped:</th>
+                    <td id="clipping"></td>
+                </tr>
+            </table>
 
-<div id="links">
-<h1>about jsfxr</h1>
-<p>Jsfxr is an online 8 bit sound maker and sfx generator. All you need to make retro sound effects with jsfxr is a web browser. It's a JavaScript port of the original <a href="http://www.drpetter.se/project_sfxr.html" id="original">sfxr</a> by DrPetter. You can also use it as a <a href='https://github.com/chr15m/jsfxr#use'>JavaScript library</a> for playing and rendering sfxr sound effects in your games.</p>
-<br/>
-(Port of <a href="http://www.drpetter.se/project_sfxr.html" id="original">sfxr</a> by DrPetter)<br/>
-<a id="uncopy" href="UNLICENSE">¢</a> 2011
-<a href="http://fredricksen.net/">Eric Fredricksen</a><br/>
-With <a href='https://github.com/chr15m/jsfxr'>contributions</a> from Chris McCormick<br/>
-<br/>
-<a href="https://github.com/chr15m/jsfxr" id="source">(Source code)</a>
-<br/>
-<p><a href='https://github.com/chr15m/jsfxr#use'>See the documentation for using these sounds in your JavaScript game</a>.</p>
-<p>Tip: use the <code>sfxr-to-wav</code> nodejs script to convert to a wave file on the command line.</p>
-</div>
+            <p>
+                <input class="slider" id="sound_vol" data-title="Gain" data-position="after" />
+            </p>
+
+            <label for="hz">Sample Rate (Hz)</label>
+            <br />
+            <div id="hz" class="buttonset">
+                <input type="radio" id="44100" value=44100 name="hz" checked="checked" />
+                <label for="44100">44k</label>
+                <input type="radio" id="22050" value=22050 name="hz" />
+                <label for="22050">22k</label>
+                <input type="radio" id="11025" value=11025 name="hz" />
+                <label for="11025">11k</label>
+                <input type="radio" id="5512" value=5512 name="hz" />
+                <label for="5512">5k</label>
+            </div>
+
+            <br />
+            <label for="bits">Sample size</label>
+            <br />
+            <div id="bits" class="buttonset">
+                <input type="radio" id="16" value=16 name="bits" />
+                <label for="16">16 bit</label>
+                <input type="radio" id="8" value=8 name="bits" checked="checked" />
+                <label for="8">8 bit</label>
+            </div>
+
+            <p><a id="share">🔗 permalink</a></p>
+            <p><button onclick="copy()">Copy code</button></p>
+            <p><canvas id="waveform" width="100" style="width:100%"></canvas></p>
+        </div>
+    </main>
+
+    <div id="data">
+        <button onclick="serialize_params();"> ▼ Serialize</button>
+        <button onclick="deserialize_params()"> ▲ Deserialize</button>
+        <button onclick="upload_params_from_file()"> ⇧ Open Save</button>
+        <input type="file" id="open_save_impl" accept="application/JSON" style="display:none" />
+        <div id="serialize">
+            <textarea></textarea>
+            <button onclick="copyText(textarea)">Copy</button>
+            <button onclick="document.getElementById('serialize').style.display='none'">Hide ✕</button>
+        </div>
+    </div>
+
+    <div id="links">
+        <h1>about jsfxr</h1>
+        <p>Jsfxr is an online 8 bit sound maker and sfx generator. All you need to make retro sound effects with jsfxr
+            is a
+            web browser. It's a JavaScript port of the original <a href="http://www.drpetter.se/project_sfxr.html"
+                id="original">sfxr</a> by DrPetter. You can also use it as a <a
+                href='https://github.com/chr15m/jsfxr#use'>JavaScript library</a> for playing and rendering sfxr sound
+            effects
+            in your games.</p>
+        <br />
+        (Port of <a href="http://www.drpetter.se/project_sfxr.html" id="original">sfxr</a> by DrPetter)<br />
+        <a id="uncopy" href="UNLICENSE">¢</a> 2011
+        <a href="http://fredricksen.net/">Eric Fredricksen</a><br />
+        With <a href='https://github.com/chr15m/jsfxr'>contributions</a> from Chris McCormick<br />
+        <br />
+        <a href="https://github.com/chr15m/jsfxr" id="source">(Source code)</a>
+        <br />
+        <p><a href='https://github.com/chr15m/jsfxr#use'>See the documentation for using these sounds in your JavaScript
+                game</a>.</p>
+        <p>Tip: use the <code>sfxr-to-wav</code> nodejs script to convert to a wave file on the command line.</p>
+    </div>
 
 </section>
 

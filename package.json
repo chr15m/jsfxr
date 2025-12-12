@@ -16,15 +16,39 @@
   "bugs": {
     "url": "https://github.com/chr15m/jsfxr/issues/"
   },
-  "keywords": ["sfxr", "jsfxr", "8-bit", "sfx", "sound effects", "synth", "8bit", "retro", "chiptune", "audio", "music", "sound", "game development"],
+  "keywords": [
+    "sfxr",
+    "jsfxr",
+    "8-bit",
+    "sfx",
+    "sound effects",
+    "synth",
+    "8bit",
+    "retro",
+    "chiptune",
+    "audio",
+    "music",
+    "sound",
+    "game development"
+  ],
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "live-server": "1.2.1",
     "tape": "5.6.1"
   },
   "scripts": {
     "serve": "live-server",
-    "test": "./tests.js"
+    "test": "./tests.js",
+    "test:e2e": "playwright test"
   },
-  "files": ["sfxr.js", "riffwave.js", "UNLICENSE", "README.md", "sfxr-to-wav"],
-  "bin": {"sfxr-to-wav": "./sfxr-to-wav"}
+  "files": [
+    "sfxr.js",
+    "riffwave.js",
+    "UNLICENSE",
+    "README.md",
+    "sfxr-to-wav"
+  ],
+  "bin": {
+    "sfxr-to-wav": "./sfxr-to-wav"
+  }
 }
