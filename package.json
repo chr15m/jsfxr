@@ -3,10 +3,18 @@
   "version": "1.3.0",
   "description": "8-bit sound effects generator based on sfxr",
   "main": "sfxr.js",
-  "exports": [
-    "./sfxr.js",
-    "./riffwave.js"
-  ],
+  "module": "sfxr.mjs",
+  "exports": {
+    ".": {
+      "import": "./sfxr.mjs",
+      "require": "./sfxr.js",
+      "default": "./sfxr.js"
+    },
+    "./riffwave": {
+      "import": "./riffwave.mjs",
+      "require": "./riffwave.js"
+    }
+  },
   "homepage": "https://github.com/chr15m/jsfxr",
   "repository": {
     "type": "git",
@@ -43,7 +51,9 @@
   },
   "files": [
     "sfxr.js",
+    "sfxr.mjs",
     "riffwave.js",
+    "riffwave.mjs",
     "UNLICENSE",
     "README.md",
     "sfxr-to-wav"

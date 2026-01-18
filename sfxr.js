@@ -9,6 +9,9 @@ var masterVolume = 1;
 
 var OVERSAMPLING = 8;
 
+// Declare sfxr in module scope for ESM strict mode compatibility
+var sfxr;
+
 /*** Core data structure ***/
 
 // Sound generation parameters are on [0,1] unless noted SIGNED & thus
@@ -1086,22 +1089,24 @@ var units = {
 /*** Plumbing ***/
 
 (function (root, factory) {
+  // Handle ESM where 'this' is undefined
+  var globalRoot = root || (typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : {}));
   if(typeof define === "function" && define.amd) {
     // Now we're wrapping the factory and assigning the return
     // value to the root (window) and returning it as well to
     // the AMD loader.
     define(["./riffwave"], function(RIFFWAVE){
-      return (root.jsfxr = factory(RIFFWAVE));
+      return (globalRoot.jsfxr = factory(RIFFWAVE));
     });
   } else if(typeof module === "object" && module.exports) {
     // I've not encountered a need for this yet, since I haven't
     // run into a scenario where plain modules depend on CommonJS
     // *and* I happen to be loading in a CJS browser environment
     // but I'm including it for the sake of being thorough
-    RIFFWAVE = require("./riffwave.js");
-    module.exports = (root.jsfxr = factory(RIFFWAVE));
+    var RIFFWAVE = require("./riffwave.js");
+    module.exports = (globalRoot.jsfxr = factory(RIFFWAVE));
   } else {
-    root.jsfxr = factory(root.RIFFWAVE);
+    globalRoot.jsfxr = factory(globalRoot.RIFFWAVE);
   }
 }(this, function(RIFFWAVE) {
   // module code here....

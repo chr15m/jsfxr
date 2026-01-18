@@ -32,6 +32,7 @@ var FastBase64 = {
     var len = src.length;
     var dst = '';
     var i = 0;
+    var n;
     while (len > 2) {
       n = (src[i] << 16) | (src[i+1]<<8) | src[i+2];
       dst+= this.encLookup[n >> 12] + this.encLookup[n & 0xFFF];
@@ -130,23 +131,34 @@ var RIFFWAVE = function(data) {
 }; // end RIFFWAVE
 
 (function (root, factory) {
+  // Handle ESM where 'this' is undefined
+  var globalRoot = root || (typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : {}));
   if(typeof define === "function" && define.amd) {
     // Now we're wrapping the factory and assigning the return
     // value to the root (window) and returning it as well to
     // the AMD loader.
     define([], function(){
-      return (root.RIFFWAVE = factory());
+      return (globalRoot.RIFFWAVE = factory());
     });
   } else if(typeof module === "object" && module.exports) {
     // I've not encountered a need for this yet, since I haven't
     // run into a scenario where plain modules depend on CommonJS
     // *and* I happen to be loading in a CJS browser environment
     // but I'm including it for the sake of being thorough
-    module.exports = (root.RIFFWAVE = factory());
+    module.exports = (globalRoot.RIFFWAVE = factory());
   } else {
-    root.RIFFWAVE = factory();
+    globalRoot.RIFFWAVE = factory();
   }
 }(this, function() {
   // module code here....
   return RIFFWAVE;
 }));
+
+// Ensure RIFFWAVE is available globally for ESM bundlers (Vite/esbuild)
+// The UMD wrapper may set it on 'exports' instead of globalThis
+if (typeof globalThis !== 'undefined' && !globalThis.RIFFWAVE) {
+  globalThis.RIFFWAVE = RIFFWAVE;
+}
+if (typeof window !== 'undefined' && !window.RIFFWAVE) {
+  window.RIFFWAVE = RIFFWAVE;
+}
